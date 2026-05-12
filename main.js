@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Dark Mono
 // @namespace    https://disto.mveu.ru/
-// @version      1.5.0
+// @version      1.5.1
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -176,8 +176,8 @@ h3 { font-size: 1.1em !important; }
     width: calc(100% - var(--d-menu-w)) !important;
     margin-left: var(--d-menu-w) !important;
     float: none !important;
-    overflow: hidden !important;
-    gap: 12px !important;
+    overflow: visible !important;
+    gap: 10px !important;
     transition: width var(--d-transition), margin-left var(--d-transition);
 }
 #status_bar > img,
@@ -186,8 +186,8 @@ h3 { font-size: 1.1em !important; }
     opacity: .82 !important;
     transition: opacity var(--d-transition) !important;
     float: none !important;
-    margin: 0 12px 0 0 !important;
-    height: 38px !important;
+    margin: 0 8px 0 0 !important;
+    height: 34px !important;
 }
 #status_bar > img:hover, #status_bar a > img:hover { opacity: 1 !important; }
 
@@ -195,11 +195,11 @@ h3 { font-size: 1.1em !important; }
     margin-left: auto !important;
     display: flex !important;
     align-items: center !important;
-    gap: 12px !important;
+    gap: 10px !important;
     flex-shrink: 1 !important;
     flex-wrap: nowrap !important;
     min-width: 0 !important;
-    max-width: 100% !important;
+    overflow: hidden !important;
 }
 
 .top-user-info {
@@ -214,7 +214,7 @@ h3 { font-size: 1.1em !important; }
     flex-direction: column !important;
     align-items: flex-end !important;
     justify-content: center !important;
-    max-width: 260px !important;
+    max-width: 200px !important;
     min-width: 0 !important;
     flex-shrink: 1 !important;
     white-space: nowrap !important;
@@ -337,22 +337,18 @@ h3 { font-size: 1.1em !important; }
  * не лип к правому краю вьюпорта (случай узкого окна). */
 #tm-dark-badge {
     font-family: var(--d-font-mono);
-    font-size: 10.5px;
-    letter-spacing: .12em;
+    font-size: 10px;
+    letter-spacing: .1em;
     color: var(--d-text-muted);
     background: var(--d-bg-3);
     border: 1px solid var(--d-border-2);
     border-radius: 4px;
-    padding: 3px 8px;
-    margin-left: 0;
-    margin-right: 12px;
+    padding: 2px 6px;
+    margin-left: 8px;
     user-select: none;
-    flex-shrink: 1 !important;
+    flex-shrink: 0 !important;
     align-self: center;
     white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    max-width: 80px !important;
     transition: color var(--d-transition), border-color var(--d-transition);
 }
 #tm-dark-badge:hover {
@@ -1376,33 +1372,41 @@ a[href="/elms/debt"] {
 }
 #contact_title { color: var(--d-text-muted) !important; font-size: 12px !important; }
 
-.in_contact, .contact_block, .contact_cell, #contact_cell {
+.in_contact {
     background: var(--d-bg-2) !important;
     color: var(--d-text) !important;
     border: 1px solid var(--d-border) !important;
     border-radius: var(--d-radius-sm);
-    padding: 8px 12px !important;
+    padding: 6px 10px !important;
     display: inline-flex !important;
     align-items: center !important;
     gap: 8px !important;
-    margin: 4px 0 !important;
     vertical-align: middle !important;
 }
 #contact_cell, .contact_cell {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius-sm);
     display: block !important;
-    padding: 10px !important;
-    margin-top: 0 !important;
+    padding: 4px !important;
+    margin: 0 !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    max-height: 300px !important;
+    max-height: 100px !important;
     overflow-y: auto !important;
 }
 .contact_block {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border: none !important;
+    border-bottom: 1px solid var(--d-border) !important;
+    border-radius: 0 !important;
     display: flex !important;
     align-items: center !important;
     gap: 10px !important;
-    padding: 8px 12px !important;
-    margin: 4px 0 !important;
+    padding: 6px 10px !important;
+    margin: 0 !important;
     cursor: pointer !important;
     transition: background var(--d-transition) !important;
 }
