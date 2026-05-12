@@ -1,13 +1,15 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Dark Mono
 // @namespace    https://disto.mveu.ru/
-// @version      1.4.0
+// @version      1.5.0
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
 // @run-at       document-start
 // @grant        GM_addStyle
 // @noframes
+// @downloadURL  https://raw.githubusercontent.com/juushimatsu/instudy-mveu-ui-fix-tampermonkey/main/main.js
+// @updateURL    https://raw.githubusercontent.com/juushimatsu/instudy-mveu-ui-fix-tampermonkey/main/main.js
 // ==/UserScript==
 
 /* eslint-disable no-undef */
@@ -174,7 +176,7 @@ h3 { font-size: 1.1em !important; }
     width: calc(100% - var(--d-menu-w)) !important;
     margin-left: var(--d-menu-w) !important;
     float: none !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     gap: 12px !important;
     transition: width var(--d-transition), margin-left var(--d-transition);
 }
@@ -343,10 +345,14 @@ h3 { font-size: 1.1em !important; }
     border-radius: 4px;
     padding: 3px 8px;
     margin-left: 0;
+    margin-right: 12px;
     user-select: none;
-    flex-shrink: 0 !important;
+    flex-shrink: 1 !important;
     align-self: center;
     white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 80px !important;
     transition: color var(--d-transition), border-color var(--d-transition);
 }
 #tm-dark-badge:hover {
@@ -1229,6 +1235,8 @@ a[href="/elms/debt"] {
     align-items: center !important;
     gap: 12px !important;
     transition: background var(--d-transition), border-color var(--d-transition);
+    content-visibility: auto !important;
+    contain-intrinsic-size: 0 52px !important;
 }
 .suser:hover {
     background: var(--d-bg-3) !important;
@@ -1373,12 +1381,41 @@ a[href="/elms/debt"] {
     color: var(--d-text) !important;
     border: 1px solid var(--d-border) !important;
     border-radius: var(--d-radius-sm);
+    padding: 8px 12px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 4px 0 !important;
+    vertical-align: middle !important;
+}
+#contact_cell, .contact_cell {
+    display: block !important;
+    padding: 10px !important;
+    margin-top: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    max-height: 300px !important;
+    overflow-y: auto !important;
+}
+.contact_block {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 8px 12px !important;
+    margin: 4px 0 !important;
+    cursor: pointer !important;
+    transition: background var(--d-transition) !important;
 }
 .contact_block:hover { background: var(--d-bg-3) !important; }
 .email, .tg, .vk { color: var(--d-text-dim) !important; }
-.online, .icontact { background: var(--d-ok) !important; color: var(--d-ok) !important; }
-.offline, .ocontact { background: var(--d-text-faint) !important; color: var(--d-text-faint) !important; }
-.cstext { color: var(--d-text-muted) !important; }
+.online, .icontact { background: transparent !important; color: var(--d-ok) !important; }
+.offline, .ocontact { background: transparent !important; color: var(--d-text-faint) !important; }
+.cstext {
+    color: var(--d-text) !important;
+    font-size: 12px !important;
+    font-family: var(--d-font-mono) !important;
+    letter-spacing: .04em !important;
+}
 
 .gmsg {
     background: var(--d-bg-4) !important;
@@ -1751,6 +1788,76 @@ iframe, embed, object { background: var(--d-bg-2); border-radius: var(--d-radius
     color: var(--d-text);
 }
 
+/* ===========================================================
+ *  Страница входа (auth.css грузится ПОСЛЕ нашего <style>,
+ *  поэтому нужна повышенная специфичность + !important)
+ * =========================================================== */
+body #auth_form,
+body.bodybg #auth_form,
+#sub-content #auth_form {
+    background: var(--d-bg-2) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius) !important;
+    color: var(--d-text) !important;
+    padding: 24px !important;
+    max-width: 420px !important;
+    margin: 40px auto !important;
+    box-shadow: var(--d-shadow-lg) !important;
+}
+body #auth_form #auth_data,
+body #auth_data {
+    background: transparent !important;
+    color: var(--d-text) !important;
+}
+body #auth_form p {
+    margin: 12px 0 !important;
+}
+body #auth_form input[type="text"],
+body #auth_form input[type="password"] {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 10px 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    font-size: 14px !important;
+    font-family: var(--d-font-mono) !important;
+    outline: none !important;
+}
+body #auth_form input::placeholder {
+    color: var(--d-text-muted) !important;
+}
+body #auth_form button#login {
+    background: var(--d-bg-5) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 10px 28px !important;
+    cursor: pointer !important;
+    font-family: var(--d-font-display) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: .04em !important;
+    transition: background var(--d-transition), color var(--d-transition) !important;
+}
+body #auth_form button#login:hover {
+    background: var(--d-accent) !important;
+    color: var(--d-bg-0) !important;
+}
+body #auth_form button.forget {
+    background: transparent !important;
+    color: var(--d-text-muted) !important;
+    border: none !important;
+    cursor: pointer !important;
+    font-size: 13px !important;
+    padding: 10px 8px !important;
+    transition: color var(--d-transition) !important;
+}
+body #auth_form button.forget:hover {
+    color: var(--d-accent) !important;
+}
+
 /* FontAwesome — наследуют цвет родителя где это уместно */
 .fa { color: inherit; }
 
@@ -1764,6 +1871,14 @@ body { animation: tm-fadein .28s ease both !important; }
 @keyframes tm-fadein {
     from { opacity: 0; }
     to   { opacity: 1; }
+}
+
+/* ===========================================================
+ *  Страницы без #menu (логин) — status_bar на всю ширину
+ * =========================================================== */
+body:not(:has(#menu)) #status_bar {
+    width: 100% !important;
+    margin-left: 0 !important;
 }
 `;
 
@@ -1927,14 +2042,89 @@ body { animation: tm-fadein .28s ease both !important; }
         } catch (_) { /* noop */ }
     }
 
+    function fixNoMenuLayout() {
+        // На странице входа (login) нет #menu — status_bar не должен
+        // оставлять место под несуществующую боковую панель.
+        // CSS :has() не поддерживается во всех браузерах, поэтому дублируем JS-ом.
+        try {
+            if (!document.getElementById('menu')) {
+                const bar = document.getElementById('status_bar');
+                if (bar) {
+                    bar.style.setProperty('width', '100%', 'important');
+                    bar.style.setProperty('margin-left', '0', 'important');
+                }
+            }
+        } catch (_) { /* noop */ }
+    }
+
+    function lazyLoadGulist() {
+        // Список преподавателей (.gulist) может содержать тысячи элементов.
+        // Показываем первую порцию, остальные подгружаем по скроллу.
+        try {
+            const BATCH = 60;
+            document.querySelectorAll('.gulist').forEach((list) => {
+                if (list.dataset.tmLazy) return;
+                list.dataset.tmLazy = '1';
+                const children = Array.from(list.children);
+                if (children.length <= BATCH) return;
+
+                for (let i = BATCH; i < children.length; i++) {
+                    children[i].style.display = 'none';
+                }
+                let shown = BATCH;
+
+                list.addEventListener('scroll', function onScroll() {
+                    if (shown >= children.length) {
+                        list.removeEventListener('scroll', onScroll);
+                        return;
+                    }
+                    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 80) {
+                        const end = Math.min(shown + BATCH, children.length);
+                        for (let i = shown; i < end; i++) {
+                            children[i].style.display = '';
+                        }
+                        shown = end;
+                    }
+                });
+            });
+        } catch (_) { /* noop */ }
+    }
+
+    function forceAuthDark() {
+        // auth.css грузится как <link> в body ПОСЛЕ нашего <style> в head.
+        // Принудительно убираем любые не-тёмные фоны на форме входа.
+        try {
+            const form = document.getElementById('auth_form');
+            if (form) {
+                form.style.setProperty('background', '#15151a', 'important');
+                form.style.setProperty('border', '1px solid #26262d', 'important');
+                form.style.setProperty('border-radius', '10px', 'important');
+                form.style.setProperty('color', '#e8e8ec', 'important');
+                form.style.setProperty('padding', '24px', 'important');
+                form.style.setProperty('max-width', '420px', 'important');
+                form.style.setProperty('margin', '40px auto', 'important');
+                // Все дочерние элементы — убираем яркие фоны
+                form.querySelectorAll('*').forEach((el) => {
+                    const bg = getComputedStyle(el).backgroundColor;
+                    if (bg && !/rgba?\(\s*0|rgba?\(\s*14|rgba?\(\s*21|rgba?\(\s*28|transparent/.test(bg)) {
+                        el.style.setProperty('background', 'transparent', 'important');
+                    }
+                });
+            }
+        } catch (_) { /* noop */ }
+    }
+
     onReady(() => {
         setupMeta();
         ensureDarkBaseline();
         disableColorTheme();
         freeMenuFromSlimScroll();
+        fixNoMenuLayout();
         addDarkBadge();
         strikeInlineWhites(document);
         fixBrokenAvatars(document);
+        lazyLoadGulist();
+        forceAuthDark();
 
         // MutationObserver для AJAX-вставок:
         try {
@@ -1951,6 +2141,7 @@ body { animation: tm-fadein .28s ease both !important; }
                 });
                 if (touched) {
                     freeMenuFromSlimScroll();
+                    lazyLoadGulist();
                 }
             });
             observer.observe(document.body, { childList: true, subtree: true });
