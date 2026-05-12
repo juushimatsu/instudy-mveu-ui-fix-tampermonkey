@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Dark Mono
 // @namespace    https://disto.mveu.ru/
-// @version      1.7.1
+// @version      1.8.0
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -1906,6 +1906,95 @@ body:not(:has(#menu)) #status_bar {
     width: 100% !important;
     margin-left: 0 !important;
 }
+
+/* ===========================================================
+ *  СВЕТЛАЯ ТЕМА — переопределение переменных
+ * =========================================================== */
+:root[data-theme="light"] {
+    --d-bg-0:        #f5f5f7;
+    --d-bg-1:        #ededf0;
+    --d-bg-2:        #e4e4e8;
+    --d-bg-3:        #dcdce2;
+    --d-bg-4:        #d4d4db;
+    --d-bg-5:        #d0d0d8;
+
+    --d-border:      #c8c8d0;
+    --d-border-2:    #c0c0ca;
+    --d-border-soft: #d8d8e0;
+
+    --d-text:        #0a0a0c;
+    --d-text-dim:    #2a2a32;
+    --d-text-muted:  #5a5a65;
+    --d-text-faint:  #a0a0aa;
+
+    --d-accent:      #0a0a0c;
+    --d-accent-soft: #2a2a32;
+    --d-accent-dim:  #8a8a94;
+    --d-accent-glow: rgba(0,0,0,0.06);
+
+    --d-ok:          #3a7a3a;
+    --d-warn:        #9a8040;
+    --d-bad:         #a04040;
+
+    --d-shadow:      0 2px 8px rgba(0,0,0,.08), 0 1px 0 rgba(255,255,255,.5) inset;
+    --d-shadow-lg:   0 8px 32px rgba(0,0,0,.10);
+}
+
+/* Светлая тема: аватары без grayscale */
+:root[data-theme="light"] .user_avatar,
+:root[data-theme="light"] .top-avatar img.user_avatar,
+:root[data-theme="light"] #contact_avatar {
+    filter: none !important;
+}
+
+/* Светлая тема: логотип в шапке — без инверсии */
+:root[data-theme="light"] #status_bar > img,
+:root[data-theme="light"] #status_bar a > img {
+    filter: grayscale(0) brightness(1) !important;
+}
+
+/* Светлая тема: пузырьки статусов — контрастный текст */
+:root[data-theme="light"] .bubble_1 { color: #fff !important; }
+:root[data-theme="light"] .bubble_2 { color: #fff !important; }
+:root[data-theme="light"] #unread_msg.bubble_1 { color: #fff !important; }
+
+/* Светлая тема: selection */
+:root[data-theme="light"] ::selection { background: #0a0a0c; color: #f5f5f7; }
+
+/* Светлая тема: footer img без инверсии */
+:root[data-theme="light"] footer img { filter: grayscale(1) opacity(.5); }
+
+/* ===========================================================
+ *  Кнопка переключения темы
+ * =========================================================== */
+#tm-theme-toggle {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    border-radius: 50% !important;
+    background: var(--d-bg-3) !important;
+    border: 1px solid var(--d-border) !important;
+    color: var(--d-text-dim) !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+    padding: 0 !important;
+    margin: 0 4px 0 0 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    transition: background var(--d-transition), border-color var(--d-transition), color var(--d-transition) !important;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    box-shadow: none !important;
+}
+#tm-theme-toggle:hover {
+    background: var(--d-bg-4) !important;
+    border-color: var(--d-border-2) !important;
+    color: var(--d-text) !important;
+}
 `;
 
     /* ----------------------------------------------------------- */
@@ -1936,6 +2025,10 @@ body:not(:has(#menu)) #status_bar {
 
     /* addDarkBadge убран — бейдж отключён */
 
+    function getCurrentTheme() {
+        return localStorage.getItem('tm-theme') || 'dark';
+    }
+
     function setupMeta() {
         try {
             let meta = document.querySelector('meta[name="theme-color"]');
@@ -1944,11 +2037,12 @@ body:not(:has(#menu)) #status_bar {
                 meta.name = 'theme-color';
                 document.head.appendChild(meta);
             }
-            meta.content = '#0e0e11';
+            meta.content = getCurrentTheme() === 'light' ? '#f5f5f7' : '#0e0e11';
         } catch (_) { /* noop */ }
     }
 
     function ensureDarkBaseline() {
+        if (getCurrentTheme() === 'light') return;
         try {
             document.documentElement.style.background = '#0e0e11';
             if (document.body) document.body.style.background = '#0e0e11';
@@ -1966,6 +2060,7 @@ body:not(:has(#menu)) #status_bar {
 
     function strikeInlineWhites(root) {
         // Удаляем явные белые фоны / чёрный текст в инлайн-стилях.
+        if (getCurrentTheme() === 'light') return;
         try {
             const scope = root && root.querySelectorAll ? root : document;
             scope.querySelectorAll('[style]').forEach((el) => {
@@ -2108,6 +2203,7 @@ body:not(:has(#menu)) #status_bar {
     function forceAuthDark() {
         // auth.css грузится как <link> в body ПОСЛЕ нашего <style> в head.
         // Принудительно убираем любые не-тёмные фоны на форме входа.
+        if (getCurrentTheme() === 'light') return;
         try {
             const form = document.getElementById('auth_form');
             if (form) {
@@ -2149,17 +2245,65 @@ body:not(:has(#menu)) #status_bar {
         } catch (_) { /* noop */ }
     }
 
-    onReady(() => {
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('tm-theme', theme);
         setupMeta();
-        ensureDarkBaseline();
+        if (theme === 'dark') {
+            ensureDarkBaseline();
+            strikeInlineWhites(document);
+            forceAuthDark();
+        } else {
+            // Светлая тема: убираем принудительный тёмный фон
+            document.documentElement.style.background = '';
+            if (document.body) document.body.style.background = '';
+        }
+        // Обновляем иконку кнопки
+        const btn = document.getElementById('tm-theme-toggle');
+        if (btn) btn.textContent = theme === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+    }
+
+    function injectThemeToggle() {
+        try {
+            const bar = document.getElementById('status_bar');
+            if (!bar) return;
+            const userInfo = bar.querySelector('.top-user-info');
+            const btn = document.createElement('button');
+            btn.id = 'tm-theme-toggle';
+            btn.type = 'button';
+            btn.title = 'Переключить тему';
+            const saved = getCurrentTheme();
+            btn.textContent = saved === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+            btn.addEventListener('click', () => {
+                const next = getCurrentTheme() === 'dark' ? 'light' : 'dark';
+                applyTheme(next);
+            });
+            if (userInfo) {
+                userInfo.parentNode.insertBefore(btn, userInfo);
+            } else {
+                bar.appendChild(btn);
+            }
+        } catch (_) { /* noop */ }
+    }
+
+    // Применяем сохранённую тему как можно раньше (до DOMContentLoaded)
+    (function earlyTheme() {
+        const t = getCurrentTheme();
+        document.documentElement.setAttribute('data-theme', t);
+        if (t === 'dark') {
+            document.documentElement.style.background = '#0e0e11';
+        }
+    })();
+
+    onReady(() => {
+        applyTheme(getCurrentTheme());
         disableColorTheme();
         freeMenuFromSlimScroll();
         fixNoMenuLayout();
-        strikeInlineWhites(document);
         fixBrokenAvatars(document);
         lazyLoadGulist();
-        forceAuthDark();
         markMyMessages();
+        injectThemeToggle();
 
         // MutationObserver для AJAX-вставок:
         try {
