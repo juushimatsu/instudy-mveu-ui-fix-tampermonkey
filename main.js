@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.8.1
+// @version      1.8.2
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -2310,7 +2310,7 @@ body:not(:has(#menu)) #status_bar {
         try {
             const bar = document.getElementById('status_bar');
             if (!bar) return;
-            const userInfo = bar.querySelector('.top-user-info');
+            const avatar = bar.querySelector('.top-avatar');
             const btn = document.createElement('button');
             btn.id = 'tm-theme-toggle';
             btn.type = 'button';
@@ -2321,8 +2321,8 @@ body:not(:has(#menu)) #status_bar {
                 const next = getCurrentTheme() === 'dark' ? 'light' : 'dark';
                 applyTheme(next);
             });
-            if (userInfo) {
-                userInfo.parentNode.insertBefore(btn, userInfo);
+            if (avatar) {
+                avatar.parentNode.insertBefore(btn, avatar);
             } else {
                 bar.appendChild(btn);
             }
@@ -2409,7 +2409,7 @@ body:not(:has(#menu)) #status_bar {
                     x: Math.random() * canvas.width,
                     y: Math.random() * canvas.height,
                     r: 2 + Math.random() * 3,
-                    speed: 1 + Math.random() * 2,
+                    speed: 0.5 + Math.random() * 1,
                     offset: Math.random() * Math.PI * 2
                 });
             }
@@ -2499,15 +2499,13 @@ body:not(:has(#menu)) #status_bar {
                 applyWeather(next);
             });
 
+            var avatar = bar.querySelector('.top-avatar');
             if (themeBtn && themeBtn.parentNode) {
                 themeBtn.parentNode.insertBefore(btn, themeBtn.nextSibling);
+            } else if (avatar) {
+                avatar.parentNode.insertBefore(btn, avatar);
             } else {
-                var userInfo = bar.querySelector('.top-user-info');
-                if (userInfo) {
-                    userInfo.parentNode.insertBefore(btn, userInfo);
-                } else {
-                    bar.appendChild(btn);
-                }
+                bar.appendChild(btn);
             }
         } catch (_) { /* noop */ }
     }
