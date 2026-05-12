@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Dark Mono
 // @namespace    https://disto.mveu.ru/
-// @version      1.5.2
+// @version      1.6.0
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -334,30 +334,9 @@ h3 { font-size: 1.1em !important; }
 .top_icon a .fa-envelope-o,
 .top_icon .fa-2x { font-size: 1.5em !important; }
 
-/* Бейдж "DARK" (вставляется JS-ом).
- * flex-shrink:0 — бейдж НИКОГДА не жмется. И white-space:nowrap, чтобы
- * текст DARK не рвался на буквы. Дополнительный margin-right чтобы бейдж
- * не лип к правому краю вьюпорта (случай узкого окна). */
+/* Бейдж "DARK" — убран по запросу пользователя */
 #tm-dark-badge {
-    font-family: var(--d-font-mono);
-    font-size: 10px;
-    letter-spacing: .1em;
-    color: var(--d-text-muted);
-    background: var(--d-bg-3);
-    border: 1px solid var(--d-border-2);
-    border-radius: 4px;
-    padding: 2px 6px;
-    margin-left: 8px;
-    user-select: none;
-    flex-shrink: 0 !important;
-    align-self: center;
-    white-space: nowrap !important;
-    transition: color var(--d-transition), border-color var(--d-transition);
-}
-#tm-dark-badge:hover {
-    color: var(--d-accent);
-    border-color: var(--d-accent-dim);
-    cursor: default;
+    display: none !important;
 }
 
 /* ===========================================================
@@ -1098,13 +1077,21 @@ a[href="/elms/debt"] {
 /* #chat_window не трогаем по позиционированию — он отображается только
  * при выбранном собеседнике (когда #search скрыт), его absolute-лейаут
  * не мешает footer'у, т.к. #search уже даёт высоту #sub-content. */
-#chat_window, .messages {
-    background: var(--d-bg-2) !important;
+#chat_window {
+    background: var(--d-bg-1) !important;
     color: var(--d-text) !important;
     border: 1px solid var(--d-border) !important;
     border-radius: var(--d-radius);
 }
-.my, .suser {
+.messages {
+    background: var(--d-bg-1) !important;
+    color: var(--d-text) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    padding: 12px !important;
+}
+.suser {
     background: var(--d-bg-2) !important;
     color: var(--d-text) !important;
     border-bottom: 1px solid var(--d-border-soft) !important;
@@ -1112,7 +1099,6 @@ a[href="/elms/debt"] {
     padding: 10px 14px !important;
     border-radius: var(--d-radius-sm) !important;
 }
-.my { border-left-color: var(--d-accent-dim) !important; }
 
 /* --- Центральная панель поиска / групп пользователей ---
  * Оригинал ставит #search { position: absolute; width: 64.4%; height: 80% }.
@@ -1294,25 +1280,55 @@ a[href="/elms/debt"] {
 }
 #send_button:hover { background: var(--d-bg-5) !important; color: var(--d-accent) !important; }
 
-/* Сообщения в чате */
+/* ========================
+ *  Сообщения — стиль мессенджера
+ * ======================== */
 .msg_text {
-    background: var(--d-bg-2) !important;
+    background: var(--d-bg-3) !important;
     color: var(--d-text) !important;
-    border-bottom: 1px solid var(--d-border-soft) !important;
-    padding: 8px 16px !important;
-    border-left: 3px solid transparent !important;
+    padding: 10px 14px !important;
+    border-radius: 12px 12px 12px 4px !important;
+    border: none !important;
+    max-width: 70% !important;
+    align-self: flex-start !important;
+    margin: 2px 0 !important;
+    position: relative !important;
+    word-wrap: break-word !important;
     transition: background var(--d-transition);
 }
 .msg_text:hover {
-    background: var(--d-bg-3) !important;
-    border-left-color: var(--d-accent-dim) !important;
+    background: var(--d-bg-4) !important;
+}
+/* Сообщения текущего пользователя — справа, другой цвет */
+.my {
+    background: var(--d-bg-4) !important;
+    color: var(--d-text) !important;
+    border-radius: 12px 12px 4px 12px !important;
+    border: none !important;
+    align-self: flex-end !important;
+    max-width: 70% !important;
+    padding: 10px 14px !important;
+    margin: 2px 0 !important;
+    border-left: none !important;
+    position: relative !important;
+    word-wrap: break-word !important;
+}
+.my:hover {
+    background: var(--d-bg-5) !important;
 }
 .munread {
-    background: rgba(244,244,247,0.05) !important;
-    border-left-color: var(--d-accent) !important;
+    background: rgba(244,244,247,0.07) !important;
+    box-shadow: inset 0 0 0 1px var(--d-accent-dim) !important;
 }
-.msg_text b { color: var(--d-accent) !important; font-family: var(--d-font-display); }
-.msg_text .date, .msg_text [class*="date"] { color: var(--d-text-muted) !important; font-family: var(--d-font-mono); font-size: 12px; }
+.msg_text b, .my b { color: var(--d-accent-soft) !important; font-family: var(--d-font-display); font-size: 12px !important; }
+.msg_text .date, .msg_text [class*="date"],
+.my .date, .my [class*="date"] {
+    color: var(--d-text-muted) !important;
+    font-family: var(--d-font-mono);
+    font-size: 11px !important;
+    display: block !important;
+    margin-top: 4px !important;
+}
 
 /* Кнопка выбора файла в чате */
 .chous {
@@ -1918,17 +1934,7 @@ body:not(:has(#menu)) #status_bar {
         }
     }
 
-    function addDarkBadge() {
-        try {
-            const bar = document.getElementById('status_bar');
-            if (!bar || document.getElementById('tm-dark-badge')) return;
-            const badge = document.createElement('span');
-            badge.id = 'tm-dark-badge';
-            badge.textContent = '◑ DARK';
-            badge.title = 'InStudy Dark Mono — Tampermonkey';
-            bar.appendChild(badge);
-        } catch (_) { /* noop */ }
-    }
+    /* addDarkBadge убран — бейдж отключён */
 
     function setupMeta() {
         try {
@@ -2129,7 +2135,6 @@ body:not(:has(#menu)) #status_bar {
         disableColorTheme();
         freeMenuFromSlimScroll();
         fixNoMenuLayout();
-        addDarkBadge();
         strikeInlineWhites(document);
         fixBrokenAvatars(document);
         lazyLoadGulist();
