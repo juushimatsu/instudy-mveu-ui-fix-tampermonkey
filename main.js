@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Dark Mono
 // @namespace    https://disto.mveu.ru/
-// @version      1.6.2
+// @version      1.7.0
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -1081,6 +1081,8 @@ a[href="/elms/debt"] {
 .messages {
     background: var(--d-bg-1) !important;
     color: var(--d-text) !important;
+}
+#chat_msg {
     display: flex !important;
     flex-direction: column !important;
     gap: 4px !important;
@@ -1251,7 +1253,7 @@ a[href="/elms/debt"] {
 .uc_admin   { color: var(--d-bad)  !important; }
 .uc_teacher { color: var(--d-ok)   !important; }
 
-.my b, .suser b {
+.suser b {
     color: var(--d-text) !important;
     font-family: var(--d-font-display);
     font-size: 13px;
@@ -1278,7 +1280,7 @@ a[href="/elms/debt"] {
 /* ========================
  *  Сообщения — стиль мессенджера
  * ======================== */
-.msg_text {
+#chat_msg .msg_text {
     background: var(--d-bg-3) !important;
     color: var(--d-text) !important;
     padding: 10px 14px !important;
@@ -1292,50 +1294,52 @@ a[href="/elms/debt"] {
     transition: background var(--d-transition);
     float: none !important;
 }
-.msg_text:hover {
+#chat_msg .msg_text:hover {
     background: var(--d-bg-4) !important;
 }
 /* Сообщения текущего пользователя — справа, другой цвет (JS добавляет .tm-my-msg) */
-.my.msg_text, .msg_text.tm-my-msg {
+#chat_msg .msg_text.tm-my-msg {
     background: var(--d-bg-5) !important;
-    color: var(--d-text) !important;
     border-radius: 12px 12px 4px 12px !important;
-    border: none !important;
-    max-width: 70% !important;
-    width: fit-content !important;
-    padding: 10px 14px !important;
     margin: 4px 0 4px auto !important;
-    border-left: none !important;
-    position: relative !important;
-    word-wrap: break-word !important;
-    float: none !important;
 }
-.my.msg_text:hover, .msg_text.tm-my-msg:hover {
+#chat_msg .msg_text.tm-my-msg:hover {
     background: var(--d-accent-glow) !important;
 }
 .munread {
     background: rgba(244,244,247,0.07) !important;
     box-shadow: inset 0 0 0 1px var(--d-accent-dim) !important;
 }
-.msg_text b, .my b, .tm-my-msg b { color: var(--d-accent-soft) !important; font-family: var(--d-font-display); font-size: 12px !important; }
-.msg_text .date, .msg_text [class*="date"],
-.my .date, .my [class*="date"],
-.tm-my-msg .date, .tm-my-msg [class*="date"] {
+#chat_msg .msg_text b { color: var(--d-accent-soft) !important; font-family: var(--d-font-display); font-size: 12px !important; }
+#chat_msg .msg_text span[style*="float:right"] {
+    float: none !important;
     color: var(--d-text-muted) !important;
-    font-family: var(--d-font-mono);
+    font-family: var(--d-font-mono) !important;
     font-size: 11px !important;
+    margin-left: 8px !important;
 }
 
 /* Кнопка выбора файла в чате */
-.chous {
+.btnFile {
+    display: inline-block !important;
+    vertical-align: middle !important;
+}
+.btnFile .chous {
     background: var(--d-bg-4) !important;
     color: var(--d-text-dim) !important;
     border: 1px solid var(--d-border-2) !important;
     border-radius: var(--d-radius-sm) !important;
-    padding: 6px 12px !important;
+    padding: 8px 12px !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     transition: background var(--d-transition), color var(--d-transition);
 }
-.chous:hover { background: var(--d-bg-5) !important; color: var(--d-accent) !important; }
+.btnFile .chous:hover { background: var(--d-bg-5) !important; color: var(--d-accent) !important; }
+.btnFile input[type="file"] {
+    display: none !important;
+}
 
 /* #contact_detail оригинально скрыт (display:none в message.css) и показывается
  * jQuery'ем при выборе собеседника (тогда на элементе появляется
@@ -2135,7 +2139,7 @@ body:not(:has(#menu)) #status_bar {
             const myName = userInfoEl.textContent.trim().toLowerCase();
             if (!myName) return;
 
-            const msgs = document.querySelectorAll('.messages .msg_text');
+            const msgs = document.querySelectorAll('#chat_msg .msg_text');
             msgs.forEach((msg) => {
                 if (msg.classList.contains('tm-my-msg')) return;
                 const nameEl = msg.querySelector('b');
