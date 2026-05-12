@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Dark Mono
 // @namespace    https://disto.mveu.ru/
-// @version      1.5.1
+// @version      1.5.2
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -101,6 +101,9 @@ body.bodybg::before, body.bodybg::after { display: none !important; }
 #content, #sub-content {
     background: var(--d-bg-1) !important;
     color: var(--d-text) !important;
+}
+#sub-content {
+    position: relative !important;
 }
 
 /* Ссылки */
@@ -1389,12 +1392,15 @@ a[href="/elms/debt"] {
     border: 1px solid var(--d-border) !important;
     border-radius: var(--d-radius-sm);
     display: block !important;
-    padding: 4px !important;
-    margin: 0 !important;
-    width: 100% !important;
+    padding: 6px !important;
+    position: absolute !important;
+    right: 0 !important;
+    top: 18px !important;
+    width: 260px !important;
     box-sizing: border-box !important;
-    max-height: 100px !important;
+    max-height: calc(100vh - 160px) !important;
     overflow-y: auto !important;
+    z-index: 10 !important;
 }
 .contact_block {
     background: var(--d-bg-2) !important;
@@ -1916,12 +1922,11 @@ body:not(:has(#menu)) #status_bar {
         try {
             const bar = document.getElementById('status_bar');
             if (!bar || document.getElementById('tm-dark-badge')) return;
-            const widgets = bar.querySelector('.top-widgets') || bar;
             const badge = document.createElement('span');
             badge.id = 'tm-dark-badge';
             badge.textContent = '◑ DARK';
             badge.title = 'InStudy Dark Mono — Tampermonkey';
-            widgets.appendChild(badge);
+            bar.appendChild(badge);
         } catch (_) { /* noop */ }
     }
 
