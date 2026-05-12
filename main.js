@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.8.0
+// @version      1.8.1
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -1995,6 +1995,49 @@ body:not(:has(#menu)) #status_bar {
     border-color: var(--d-border-2) !important;
     color: var(--d-text) !important;
 }
+
+/* ===========================================================
+ *  Кнопка переключения эффектов погоды
+ * =========================================================== */
+#tm-weather-toggle {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    border-radius: 50% !important;
+    background: var(--d-bg-3) !important;
+    border: 1px solid var(--d-border) !important;
+    color: var(--d-text-dim) !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+    padding: 0 !important;
+    margin: 0 4px 0 0 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    transition: background var(--d-transition), border-color var(--d-transition), color var(--d-transition) !important;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    box-shadow: none !important;
+}
+#tm-weather-toggle:hover {
+    background: var(--d-bg-4) !important;
+    border-color: var(--d-border-2) !important;
+    color: var(--d-text) !important;
+}
+
+/* Canvas атмосферных частиц */
+#tm-weather-canvas {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 9999 !important;
+    pointer-events: none !important;
+}
 `;
 
     /* ----------------------------------------------------------- */
@@ -2286,6 +2329,189 @@ body:not(:has(#menu)) #status_bar {
         } catch (_) { /* noop */ }
     }
 
+    /* -----------------------------------------------------------
+     *  Атмосферные частицы (дождь / снег)
+     * ----------------------------------------------------------- */
+    var animationFrameId = null;
+
+    function getCurrentWeather() {
+        try {
+            return localStorage.getItem('tm-weather') || 'off';
+        } catch (_) { /* noop */ }
+        return 'off';
+    }
+
+    function injectWeatherCanvas() {
+        try {
+            var existing = document.getElementById('tm-weather-canvas');
+            if (existing) return existing;
+            var canvas = document.createElement('canvas');
+            canvas.id = 'tm-weather-canvas';
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            document.body.appendChild(canvas);
+
+            window.addEventListener('resize', function () {
+                try {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                } catch (_) { /* noop */ }
+            });
+
+            return canvas;
+        } catch (_) { /* noop */ }
+        return null;
+    }
+
+    function startRain(canvas, ctx) {
+        try {
+            var COUNT = 170;
+            var drops = [];
+            for (var i = 0; i < COUNT; i++) {
+                drops.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    len: 15 + Math.random() * 10,
+                    speed: 12 + Math.random() * 8
+                });
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = 'rgba(180, 180, 200, 0.35)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                for (var i = 0; i < drops.length; i++) {
+                    var d = drops[i];
+                    ctx.moveTo(d.x, d.y);
+                    ctx.lineTo(d.x + d.len * Math.sin(0.35), d.y + d.len * Math.cos(0.35));
+                    d.y += d.speed;
+                    d.x += d.speed * Math.sin(0.35);
+                    if (d.y > canvas.height) {
+                        d.y = -d.len;
+                        d.x = Math.random() * canvas.width;
+                    }
+                }
+                ctx.stroke();
+                animationFrameId = requestAnimationFrame(draw);
+            }
+
+            draw();
+        } catch (_) { /* noop */ }
+    }
+
+    function startSnow(canvas, ctx) {
+        try {
+            var COUNT = 140;
+            var flakes = [];
+            for (var i = 0; i < COUNT; i++) {
+                flakes.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    r: 2 + Math.random() * 3,
+                    speed: 1 + Math.random() * 2,
+                    offset: Math.random() * Math.PI * 2
+                });
+            }
+            var time = 0;
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'rgba(220, 230, 255, 0.7)';
+                time += 0.01;
+                for (var i = 0; i < flakes.length; i++) {
+                    var f = flakes[i];
+                    ctx.beginPath();
+                    ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+                    ctx.fill();
+                    f.y += f.speed;
+                    f.x += Math.sin(time * f.speed + f.offset) * 0.8;
+                    if (f.y > canvas.height) {
+                        f.y = -f.r;
+                        f.x = Math.random() * canvas.width;
+                    }
+                }
+                animationFrameId = requestAnimationFrame(draw);
+            }
+
+            draw();
+        } catch (_) { /* noop */ }
+    }
+
+    function stopWeather() {
+        try {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            var canvas = document.getElementById('tm-weather-canvas');
+            if (canvas) {
+                var ctx = canvas.getContext('2d');
+                if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+                canvas.style.display = 'none';
+            }
+        } catch (_) { /* noop */ }
+    }
+
+    function applyWeather(mode) {
+        try {
+            stopWeather();
+            if (mode === 'off') return;
+            var canvas = injectWeatherCanvas();
+            if (!canvas) return;
+            canvas.style.display = 'block';
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            var ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            if (mode === 'rain') {
+                startRain(canvas, ctx);
+            } else if (mode === 'snow') {
+                startSnow(canvas, ctx);
+            }
+        } catch (_) { /* noop */ }
+    }
+
+    function injectWeatherToggle() {
+        try {
+            var bar = document.getElementById('status_bar');
+            if (!bar) return;
+            var themeBtn = document.getElementById('tm-theme-toggle');
+            var btn = document.createElement('button');
+            btn.id = 'tm-weather-toggle';
+            btn.type = 'button';
+
+            var icons = { off: '\u{1F324}\u{FE0F}', rain: '\u{1F327}\u{FE0F}', snow: '\u{2744}\u{FE0F}' };
+            var titles = { off: '\u042d\u0444\u0444\u0435\u043a\u0442\u044b \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u044b', rain: '\u0414\u043e\u0436\u0434\u044c', snow: '\u0421\u043d\u0435\u0433' };
+            var states = ['off', 'rain', 'snow'];
+
+            var current = getCurrentWeather();
+            btn.textContent = icons[current] || icons.off;
+            btn.title = titles[current] || titles.off;
+
+            btn.addEventListener('click', function () {
+                var cur = getCurrentWeather();
+                var idx = states.indexOf(cur);
+                var next = states[(idx + 1) % states.length];
+                localStorage.setItem('tm-weather', next);
+                btn.textContent = icons[next];
+                btn.title = titles[next];
+                applyWeather(next);
+            });
+
+            if (themeBtn && themeBtn.parentNode) {
+                themeBtn.parentNode.insertBefore(btn, themeBtn.nextSibling);
+            } else {
+                var userInfo = bar.querySelector('.top-user-info');
+                if (userInfo) {
+                    userInfo.parentNode.insertBefore(btn, userInfo);
+                } else {
+                    bar.appendChild(btn);
+                }
+            }
+        } catch (_) { /* noop */ }
+    }
+
     // Применяем сохранённую тему как можно раньше (до DOMContentLoaded)
     (function earlyTheme() {
         const t = getCurrentTheme();
@@ -2304,6 +2530,8 @@ body:not(:has(#menu)) #status_bar {
         lazyLoadGulist();
         markMyMessages();
         injectThemeToggle();
+        injectWeatherToggle();
+        applyWeather(getCurrentWeather());
 
         // MutationObserver для AJAX-вставок:
         try {
