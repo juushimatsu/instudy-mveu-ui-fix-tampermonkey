@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Dark Mono
 // @namespace    https://disto.mveu.ru/
-// @version      1.6.0
+// @version      1.6.1
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -202,7 +202,6 @@ h3 { font-size: 1.1em !important; }
     flex-shrink: 1 !important;
     flex-wrap: nowrap !important;
     min-width: 0 !important;
-    overflow: hidden !important;
 }
 
 .top-user-info {
@@ -217,12 +216,8 @@ h3 { font-size: 1.1em !important; }
     flex-direction: column !important;
     align-items: flex-end !important;
     justify-content: center !important;
-    max-width: 200px !important;
     min-width: 0 !important;
     flex-shrink: 1 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
 }
 /* Скрываем <br> внутри top-user-info — мы выстраиваем строки flex-column */
 .top-user-info br { display: none !important; }
@@ -1290,6 +1285,7 @@ a[href="/elms/debt"] {
     border-radius: 12px 12px 12px 4px !important;
     border: none !important;
     max-width: 70% !important;
+    width: fit-content !important;
     align-self: flex-start !important;
     margin: 2px 0 !important;
     position: relative !important;
@@ -1299,46 +1295,53 @@ a[href="/elms/debt"] {
 .msg_text:hover {
     background: var(--d-bg-4) !important;
 }
-/* Сообщения текущего пользователя — справа, другой цвет */
-.my {
+/* Сообщения текущего пользователя — справа, другой цвет (JS добавляет .tm-my-msg) */
+.my, .tm-my-msg {
     background: var(--d-bg-4) !important;
     color: var(--d-text) !important;
     border-radius: 12px 12px 4px 12px !important;
     border: none !important;
     align-self: flex-end !important;
     max-width: 70% !important;
+    width: fit-content !important;
     padding: 10px 14px !important;
     margin: 2px 0 !important;
     border-left: none !important;
     position: relative !important;
     word-wrap: break-word !important;
 }
-.my:hover {
+.my:hover, .tm-my-msg:hover {
     background: var(--d-bg-5) !important;
 }
 .munread {
     background: rgba(244,244,247,0.07) !important;
     box-shadow: inset 0 0 0 1px var(--d-accent-dim) !important;
 }
-.msg_text b, .my b { color: var(--d-accent-soft) !important; font-family: var(--d-font-display); font-size: 12px !important; }
+.msg_text b, .my b, .tm-my-msg b { color: var(--d-accent-soft) !important; font-family: var(--d-font-display); font-size: 12px !important; }
 .msg_text .date, .msg_text [class*="date"],
-.my .date, .my [class*="date"] {
+.my .date, .my [class*="date"],
+.tm-my-msg .date, .tm-my-msg [class*="date"] {
     color: var(--d-text-muted) !important;
     font-family: var(--d-font-mono);
     font-size: 11px !important;
-    display: block !important;
-    margin-top: 4px !important;
 }
 
 /* Кнопка выбора файла в чате */
-.chous {
+.chous, .btnFile {
     background: var(--d-bg-4) !important;
     color: var(--d-text-dim) !important;
     border: 1px solid var(--d-border-2) !important;
-    border-radius: var(--d-radius-sm) !important;
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
     transition: background var(--d-transition), color var(--d-transition);
 }
-.chous:hover { background: var(--d-bg-5) !important; color: var(--d-accent) !important; }
+.chous:hover, .btnFile:hover { background: var(--d-bg-5) !important; color: var(--d-accent) !important; }
 
 /* #contact_detail оригинально скрыт (display:none в message.css) и показывается
  * jQuery'ем при выборе собеседника (тогда на элементе появляется
@@ -2129,6 +2132,27 @@ body:not(:has(#menu)) #status_bar {
         } catch (_) { /* noop */ }
     }
 
+    function markMyMessages() {
+        // Определяем имя текущего пользователя из шапки (.top-user-info b)
+        // и помечаем его сообщения в чате классом .tm-my-msg
+        try {
+            const userInfoEl = document.querySelector('.top-user-info b');
+            if (!userInfoEl) return;
+            const myName = userInfoEl.textContent.trim();
+            if (!myName) return;
+
+            const msgs = document.querySelectorAll('.messages .msg_text');
+            msgs.forEach((msg) => {
+                if (msg.dataset.tmMarked) return;
+                msg.dataset.tmMarked = '1';
+                const nameEl = msg.querySelector('b');
+                if (nameEl && nameEl.textContent.trim() === myName) {
+                    msg.classList.add('tm-my-msg');
+                }
+            });
+        } catch (_) { /* noop */ }
+    }
+
     onReady(() => {
         setupMeta();
         ensureDarkBaseline();
@@ -2139,6 +2163,7 @@ body:not(:has(#menu)) #status_bar {
         fixBrokenAvatars(document);
         lazyLoadGulist();
         forceAuthDark();
+        markMyMessages();
 
         // MutationObserver для AJAX-вставок:
         try {
@@ -2156,6 +2181,7 @@ body:not(:has(#menu)) #status_bar {
                 if (touched) {
                     freeMenuFromSlimScroll();
                     lazyLoadGulist();
+                    markMyMessages();
                 }
             });
             observer.observe(document.body, { childList: true, subtree: true });
