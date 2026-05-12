@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Dark Mono
 // @namespace    https://disto.mveu.ru/
-// @version      1.7.0
+// @version      1.7.1
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -1083,9 +1083,6 @@ a[href="/elms/debt"] {
     color: var(--d-text) !important;
 }
 #chat_msg {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 4px !important;
     padding: 12px !important;
 }
 .suser {
@@ -1281,6 +1278,7 @@ a[href="/elms/debt"] {
  *  Сообщения — стиль мессенджера
  * ======================== */
 #chat_msg .msg_text {
+    display: block !important;
     background: var(--d-bg-3) !important;
     color: var(--d-text) !important;
     padding: 10px 14px !important;
@@ -1293,6 +1291,7 @@ a[href="/elms/debt"] {
     word-wrap: break-word !important;
     transition: background var(--d-transition);
     float: none !important;
+    clear: both !important;
 }
 #chat_msg .msg_text:hover {
     background: var(--d-bg-4) !important;
