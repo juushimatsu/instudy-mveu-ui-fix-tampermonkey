@@ -1,6 +1,6 @@
-# 🌑 InStudy / disto.mveu.ru — Dark Mono
+# 🌑 InStudy / disto.mveu.ru — Mono UI
 
-Tampermonkey-скрипт — полный UI-оверхаул студенческого портала [disto.mveu.ru](https://disto.mveu.ru) (InStudy, МВЭУ): монохромная палитра, переработанная вёрстка, оптимизация производительности.
+Tampermonkey-скрипт — полный UI-оверхаул студенческого портала [disto.mveu.ru](https://disto.mveu.ru) (InStudy, МВЕУ): монохромная палитра, переработанная вёрстка, оптимизация производительности.
 
 ![screenshot](screenshot.png)
 
