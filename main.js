@@ -1,0 +1,1959 @@
+// ==UserScript==
+// @name         InStudy / disto.mveu.ru — Dark Mono
+// @namespace    https://disto.mveu.ru/
+// @version      1.4.0
+// @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
+// @author       boostcsgonik
+// @match        *://disto.mveu.ru/*
+// @run-at       document-start
+// @grant        GM_addStyle
+// @noframes
+// ==/UserScript==
+
+/* eslint-disable no-undef */
+(function () {
+    'use strict';
+
+    /* -----------------------------------------------------------
+     *  Подключаем красивые шрифты (как в CLAUDE OLD)
+     * ----------------------------------------------------------- */
+    function injectFonts() {
+        try {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Unbounded:wght@300;500;600&display=swap';
+            (document.head || document.documentElement).appendChild(link);
+        } catch (_) { /* noop */ }
+    }
+    injectFonts();
+
+    /* -----------------------------------------------------------
+     *  Палитра
+     *  Монохром на нейтральном графите. Один акцент — светло-серый,
+     *  плюс приглушённые "успех/предупреждение/ошибка" в тех же тонах.
+     * ----------------------------------------------------------- */
+    const CSS = `
+:root {
+    /* фоновые слои */
+    --d-bg-0:        #0a0a0c;   /* самый дальний фон */
+    --d-bg-1:        #0e0e11;   /* основной фон страницы */
+    --d-bg-2:        #15151a;   /* поверхности (виджеты, карточки) */
+    --d-bg-3:        #1c1c22;   /* приподнятые элементы, hover, шапка */
+    --d-bg-4:        #26262d;   /* активные ячейки таблиц, выбранные */
+    --d-bg-5:        #2f2f37;   /* кнопки, ховер на кнопках */
+
+    /* границы и разделители */
+    --d-border:      #26262d;
+    --d-border-2:    #34343c;
+    --d-border-soft: #1c1c22;
+
+    /* текст */
+    --d-text:        #e8e8ec;
+    --d-text-dim:    #b0b0ba;
+    --d-text-muted:  #767680;
+    --d-text-faint:  #4f4f58;
+
+    /* акценты (монохромные, светло-серый = ссылка/активный) */
+    --d-accent:      #f4f4f7;
+    --d-accent-soft: #c8c8d0;
+    --d-accent-dim:  #80808a;
+    --d-accent-glow: rgba(244,244,247,0.08);
+
+    /* состояния (приглушённые, чтобы не выбивались из монохрома) */
+    --d-ok:          #6d8a6d;
+    --d-warn:        #b5a070;
+    --d-bad:         #b07474;
+
+    --d-shadow:      0 2px 8px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.02) inset;
+    --d-shadow-lg:   0 8px 32px rgba(0,0,0,.65);
+    --d-radius:      10px;
+    --d-radius-sm:   6px;
+
+    --d-font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    --d-font-display: 'Unbounded', 'PT Sans', system-ui, sans-serif;
+
+    --d-menu-w:           68px;   /* ширина свёрнутой панели */
+    --d-menu-w-expanded:  280px;  /* ширина раскрытой панели */
+    --d-transition:       .22s cubic-bezier(.2,.7,.3,1);
+}
+
+/* ===========================================================
+ *  База: html / body / общий сброс цветов
+ *  ВАЖНО: не выставляем * { box-sizing: border-box } глобально —
+ *  это ломает фиксированные сетки виджетов (240px + padding) на
+ *  главной. Применяем border-box точечно там, где надо.
+ * =========================================================== */
+html, body {
+    background: var(--d-bg-1) !important;
+    color: var(--d-text) !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body, body.bodybg {
+    background: var(--d-bg-1) !important;
+    background-image: none !important;
+}
+body.bodybg::before, body.bodybg::after { display: none !important; }
+
+#content, #sub-content {
+    background: var(--d-bg-1) !important;
+    color: var(--d-text) !important;
+}
+
+/* Ссылки */
+a, a:visited {
+    color: var(--d-accent-soft) !important;
+    text-decoration: none;
+    transition: color .15s ease, opacity .15s ease;
+}
+a:hover {
+    color: var(--d-accent) !important;
+    text-decoration: underline;
+    text-decoration-color: var(--d-text-faint);
+    text-underline-offset: 2px;
+}
+
+/* Заголовки */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--d-text) !important;
+    font-family: var(--d-font-display);
+    font-weight: 600 !important;
+    letter-spacing: -.01em;
+}
+h1 { font-size: 1.6em !important; }
+h2 { font-size: 1.3em !important; }
+h3 { font-size: 1.1em !important; }
+
+/* Inline-цвета: перебиваем чёрные/светлые текстовые цвета */
+[style*="color:#000"], [style*="color: #000"],
+[style*="color:#111"], [style*="color: #111"],
+[style*="color:#222"], [style*="color: #222"],
+[style*="color:#333"], [style*="color: #333"],
+[style*="color:black"], [style*="color: black"] {
+    color: var(--d-text) !important;
+}
+[style*="color:#666"], [style*="color: #666"],
+[style*="color:#777"], [style*="color: #777"],
+[style*="color:#888"], [style*="color: #888"],
+[style*="color:#999"], [style*="color: #999"],
+[style*="color:#aaa"], [style*="color: #aaa"],
+[style*="color:#bbb"], [style*="color: #bbb"],
+[style*="color:#ccc"], [style*="color: #ccc"] {
+    color: var(--d-text-muted) !important;
+}
+
+/* Inline background:#fff/#fafafa и т.п. -> поверхность */
+[style*="background:#fff"], [style*="background: #fff"],
+[style*="background:#FFF"], [style*="background: #FFF"],
+[style*="background:white"], [style*="background: white"],
+[style*="background-color:#fff"], [style*="background-color: #fff"],
+[style*="background-color:#FFF"], [style*="background-color: #FFF"],
+[style*="background-color:white"], [style*="background-color: white"],
+[style*="background:#f3f3f3"], [style*="background: #f3f3f3"],
+[style*="background:#f8f8f8"], [style*="background: #f8f8f8"],
+[style*="background:#fafafa"], [style*="background: #fafafa"] {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+}
+
+/* ===========================================================
+ *  ШАПКА / STATUS BAR
+ * =========================================================== */
+#status_bar {
+    background: var(--d-bg-2) !important;
+    border-bottom: 1px solid var(--d-border) !important;
+    box-shadow: 0 1px 20px rgba(0,0,0,.55) !important;
+    height: 72px !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 18px 0 24px !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 900 !important;
+    width: calc(100% - var(--d-menu-w)) !important;
+    margin-left: var(--d-menu-w) !important;
+    float: none !important;
+    overflow: visible !important;
+    gap: 12px !important;
+    transition: width var(--d-transition), margin-left var(--d-transition);
+}
+#status_bar > img,
+#status_bar a > img {
+    filter: grayscale(1) brightness(1.3) contrast(1.05) !important;
+    opacity: .82 !important;
+    transition: opacity var(--d-transition) !important;
+    float: none !important;
+    margin: 0 12px 0 0 !important;
+    height: 38px !important;
+}
+#status_bar > img:hover, #status_bar a > img:hover { opacity: 1 !important; }
+
+.top-widgets {
+    margin-left: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-shrink: 1 !important;
+    flex-wrap: nowrap !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+
+.top-user-info {
+    color: var(--d-text) !important;
+    text-align: right !important;
+    line-height: 1.35 !important;
+    font-size: 13px !important;
+    float: none !important;
+    width: auto !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    max-width: 260px !important;
+    min-width: 0 !important;
+    flex-shrink: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+/* Скрываем <br> внутри top-user-info — мы выстраиваем строки flex-column */
+.top-user-info br { display: none !important; }
+.top-user-info b {
+    color: var(--d-accent) !important;
+    font-family: var(--d-font-display) !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    letter-spacing: .04em !important;
+    text-transform: uppercase !important;
+    display: block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.2 !important;
+}
+.top-user-info span,
+.top-user-info span[style*="color:#aaa"],
+.top-user-info span[style*="color:#bbb"],
+.top-user-info span[style*="color: #aaa"],
+.top-user-info span[style*="color: #bbb"] {
+    color: var(--d-text-muted) !important;
+    font-family: var(--d-font-mono) !important;
+    font-size: 11px !important;
+    display: block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.35 !important;
+}
+
+.top-avatar {
+    width: 46px !important;
+    height: 46px !important;
+    border-radius: 50% !important;
+    border: 1px solid var(--d-border-2) !important;
+    background: var(--d-bg-3) !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    float: none !important;
+    flex-shrink: 0 !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: var(--d-text-muted) !important;
+    font-size: 22px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+.user_avatar, .top-avatar img.user_avatar {
+    width: 46px !important;
+    height: 46px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    filter: grayscale(.35) !important;
+    margin: 0 !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+/* Аккуратный плэйсхолдер, если аватар не загрузился (broken img) */
+.tm-avatar-fallback {
+    width: 46px !important;
+    height: 46px !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: var(--d-bg-3);
+    color: var(--d-text-muted);
+    font-family: var(--d-font-display);
+    font-size: 18px !important;
+    line-height: 1 !important;
+}
+
+/* На узких экранах оригинальный new.css прячет блок профиля — возвращаем его, */
+/* потому что у нас есть место (узкая рейка меню). */
+@media screen and (max-width: 800px) {
+    .top-user-info, .top-avatar, .top-message {
+        display: inline-flex !important;
+    }
+    .top-user-info { max-width: 220px !important; }
+}
+
+.top-message {
+    float: none !important;
+    margin: 0 !important;
+}
+.top_icon {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto !important;
+    margin: 0 !important;
+    float: none !important;
+    flex-direction: row !important;
+}
+.top_icon a, .top_icon a:hover {
+    color: var(--d-text-dim) !important;
+    margin: 0 !important;
+    height: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    transition: color var(--d-transition) !important;
+}
+.top_icon a:hover { color: var(--d-accent) !important; }
+.top_icon a .fa-envelope-o,
+.top_icon .fa-2x { font-size: 1.5em !important; }
+
+/* Бейдж "DARK" (вставляется JS-ом).
+ * flex-shrink:0 — бейдж НИКОГДА не жмется. И white-space:nowrap, чтобы
+ * текст DARK не рвался на буквы. Дополнительный margin-right чтобы бейдж
+ * не лип к правому краю вьюпорта (случай узкого окна). */
+#tm-dark-badge {
+    font-family: var(--d-font-mono);
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    color: var(--d-text-muted);
+    background: var(--d-bg-3);
+    border: 1px solid var(--d-border-2);
+    border-radius: 4px;
+    padding: 3px 8px;
+    margin-left: 0;
+    user-select: none;
+    flex-shrink: 0 !important;
+    align-self: center;
+    white-space: nowrap !important;
+    transition: color var(--d-transition), border-color var(--d-transition);
+}
+#tm-dark-badge:hover {
+    color: var(--d-accent);
+    border-color: var(--d-accent-dim);
+    cursor: default;
+}
+
+/* ===========================================================
+ *  БОКОВОЕ МЕНЮ — узкая рейка, раскрывается по hover
+ * =========================================================== */
+#menu {
+    width: var(--d-menu-w) !important;
+    height: calc(100vh - 72px) !important;   /* меню — НИЖЕ статус-бара */
+    position: fixed !important;
+    top: 72px !important;
+    left: 0 !important;
+    background: var(--d-bg-2) !important;
+    border-right: 1px solid var(--d-border) !important;
+    border-top: 1px solid var(--d-border) !important;
+    padding: 10px 0 14px 0 !important;
+    z-index: 1100 !important;                /* выше статус-бара чтобы expand тоже не резался */
+    overflow: visible !important;
+    box-shadow: var(--d-shadow);
+    transition: width var(--d-transition);
+}
+#menu:hover {
+    width: var(--d-menu-w-expanded) !important;
+    box-shadow: var(--d-shadow-lg);
+}
+
+/* slimScroll-обёртка не должна резать раскрывшееся меню */
+#menu .slimScrollDiv {
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: transparent !important;
+}
+#menu .slimScrollRail, #menu .slimScrollBar { display: none !important; }
+
+#menu_item {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: transparent !important;
+    list-style: none !important;
+}
+#menu_item li {
+    margin: 2px 8px !important;
+    padding: 0 !important;
+    list-style: none !important;
+    text-align: left !important;
+    border-radius: var(--d-radius-sm) !important;
+    transition: background var(--d-transition);
+    position: relative;
+}
+#menu_item li:hover { background: var(--d-bg-3) !important; }
+
+#menu_item li a {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    padding: 10px 14px !important;
+    color: var(--d-text-dim) !important;
+    text-decoration: none !important;
+    font-size: 13px !important;
+    font-family: var(--d-font-display);
+    font-weight: 400;
+    letter-spacing: .01em;
+    border-radius: var(--d-radius-sm) !important;
+    transition: color var(--d-transition) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+}
+#menu_item li a:hover { color: var(--d-accent) !important; }
+#menu_item li a b {
+    display: inline !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-weight: 500 !important;
+    font-size: 12.5px !important;
+    color: inherit !important;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity var(--d-transition), transform var(--d-transition);
+    text-align: left !important;
+    /* fallback ширина — заполняем оставшееся место */
+    flex: 1 1 auto;
+    min-width: 0;
+}
+#menu:hover #menu_item li a b {
+    opacity: 1;
+    transform: none;
+}
+
+/* Иконки FontAwesome в меню — переопределяем fa-2x чтобы влезли в строку */
+#menu_item .menu_icon,
+#menu_item li a .fa {
+    color: var(--d-text-muted) !important;
+    width: 24px !important;
+    min-width: 24px !important;
+    height: 24px !important;
+    text-align: center !important;
+    font-size: 18px !important;
+    line-height: 24px !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    transition: color var(--d-transition) !important;
+}
+#menu_item li:hover .menu_icon,
+#menu_item li a:hover .menu_icon { color: var(--d-accent) !important; }
+
+/* Активный пункт меню (имеет .icon_select на иконке) */
+#menu_item li a .icon_select {
+    color: var(--d-accent) !important;
+    text-shadow: 0 0 14px rgba(244,244,247,.20);
+}
+#menu_item li:has(.icon_select),
+#menu_item li a:has(.icon_select) {
+    background: var(--d-bg-3) !important;
+}
+#menu_item li:has(.icon_select) {
+    box-shadow: inset 3px 0 0 var(--d-accent);
+}
+
+/* Бургер-меню (мобильное) */
+#burder-menu-lnk {
+    color: var(--d-text) !important;
+    z-index: 1100 !important;
+}
+#burger-menu {
+    background: var(--d-bg-2) !important;
+    border-bottom: 1px solid var(--d-border) !important;
+    box-shadow: var(--d-shadow-lg) !important;
+    z-index: 1050 !important;
+}
+#burger-menu li {
+    border-bottom: 1px solid var(--d-border) !important;
+    padding: 12px 16px !important;
+}
+#burger-menu li a, #burger-menu li a b {
+    color: var(--d-text) !important;
+}
+#burger-menu li a:hover, #burger-menu li a:hover b {
+    color: var(--d-accent) !important;
+}
+#burger-menu li .menu_icon { margin-right: 12px !important; }
+
+/* Подсказка-полоска снизу */
+#linkinfo {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text-dim) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+    font-family: var(--d-font-mono) !important;
+    font-size: 11px !important;
+    padding: 4px 10px !important;
+    box-shadow: var(--d-shadow-lg) !important;
+}
+#copy {
+    color: var(--d-text-faint) !important;
+    font-family: var(--d-font-mono) !important;
+    font-size: 11px !important;
+}
+
+/* ===========================================================
+ *  ОБЩИЙ КОНТЕНТ — сдвигаем правее свёрнутой панели
+ * =========================================================== */
+#content {
+    margin-left: calc(var(--d-menu-w) + 24px) !important;
+    margin-right: 24px !important;
+    width: auto !important;
+    float: none !important;
+    padding-top: 16px;
+}
+
+/* На очень узких экранах — отключаем рейку, возвращаем родной burger-меню */
+@media screen and (max-width: 800px) {
+    #menu { display: none !important; }
+    #status_bar {
+        width: 100% !important;
+        margin-left: 0 !important;
+        padding: 0 12px !important;
+    }
+    #content {
+        margin-left: 12px !important;
+        margin-right: 12px !important;
+    }
+}
+
+/* ===========================================================
+ *  ВИДЖЕТЫ ГЛАВНОЙ
+ * =========================================================== */
+.widget {
+    border-right: 1px solid var(--d-border-soft) !important;
+    border-bottom: 1px solid var(--d-border-soft) !important;
+    transition: background .15s ease;
+}
+.widget:hover { background: var(--d-bg-2) !important; }
+
+.widget-inner {
+    background: var(--d-bg-2) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius) !important;
+    padding: 12px !important;
+    box-shadow: var(--d-shadow);
+}
+.widget-inner.widget-bg2 {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none;
+}
+.widget-title, .wtitle, p.widget-title {
+    color: var(--d-text) !important;
+    font-family: var(--d-font-display) !important;
+    font-weight: 600 !important;
+    letter-spacing: -.005em;
+}
+.gtitle, .hdesc, .hwdesc, .stitle { color: var(--d-text) !important; }
+.hicon, .hwicon { color: var(--d-text-dim) !important; }
+
+.widget-kurator { background: var(--d-bg-2) !important; }
+.widget-kurator .widget-inner { background: var(--d-bg-2) !important; }
+.widget-kurator a, .widget-kurator b { color: var(--d-text) !important; }
+.uch_otd, .kurator-info-mveo, .kurator-info-mveo a { color: var(--d-text) !important; }
+.kurator-info-mveo a { color: var(--d-accent-soft) !important; }
+
+/* Календарь-виджет */
+#widget_calendar .cal_cell {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text-dim) !important;
+    border-radius: 4px;
+}
+#widget_calendar .cal_cell_active {
+    background: var(--d-accent) !important;
+    color: var(--d-bg-0) !important;
+    font-weight: 700;
+}
+#widget_calendar .cal_cell_active:hover { color: var(--d-bg-0) !important; }
+.day_of_the_week { color: var(--d-text-muted) !important; }
+.day_cell, .empty_week_cell {
+    background: var(--d-bg-3) !important;
+    border-color: var(--d-bg-1) !important;
+    color: var(--d-text-dim) !important;
+}
+
+/* Долги/статусы */
+.widget-adebt .dsem {
+    background: var(--d-bg-4) !important;
+    color: var(--d-text) !important;
+}
+#widget_debt a.pay-button,
+.pay-button,
+.just_button {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+    box-shadow: none !important;
+    font-family: var(--d-font-mono) !important;
+    font-size: 12px !important;
+    letter-spacing: .03em !important;
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+#widget_debt a.pay-button:hover,
+.pay-button:hover,
+.just_button:hover {
+    background: var(--d-bg-4) !important;
+    border-color: var(--d-accent-dim) !important;
+    color: var(--d-accent) !important;
+}
+
+/* Иконки-виджеты справа (FAQ, инструкции и т.п.) */
+.ico-widget { display: flex !important; flex-direction: column !important; gap: 6px !important; }
+.wico {
+    background: var(--d-bg-2) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 8px 6px !important;
+    color: var(--d-text-dim) !important;
+    text-align: center !important;
+    font-size: .75em !important;
+    line-height: 1.3 !important;
+    transition: background var(--d-transition), border-color var(--d-transition), color var(--d-transition);
+    background-image: none !important;
+}
+.wico:hover {
+    background: var(--d-bg-3) !important;
+    border-color: var(--d-border-2) !important;
+    color: var(--d-text) !important;
+}
+.wico img {
+    filter: grayscale(1) brightness(.7) !important;
+    transition: filter var(--d-transition) !important;
+}
+.wico:hover img { filter: grayscale(.4) brightness(.95) !important; }
+
+/* ===========================================================
+ *  Бейджи / "пузырьки" статусов
+ * =========================================================== */
+.text_bubble, .bubble-point, .bubble_0, .bubble_1, .bubble_2,
+.icon_count, .icon_count_big {
+    color: var(--d-text) !important;
+    border-radius: 999px !important;
+    font-weight: 600;
+    font-family: var(--d-font-mono);
+    font-size: 11px;
+    letter-spacing: .03em;
+}
+.bubble_0          { background: var(--d-bg-4) !important; color: var(--d-text-dim) !important; }
+.bubble_1          { background: var(--d-ok) !important;   color: #0f1310 !important; }
+.bubble_2          { background: var(--d-bad) !important;  color: #1a0f0f !important; }
+#unread_msg        { background: var(--d-bg-4) !important; color: var(--d-text) !important; }
+#unread_msg.bubble_1 { background: var(--d-bad) !important; color: #1a0f0f !important; }
+
+.text_bubble.bubble_1, .text_bubble.bubble_2 { padding: 1px 8px !important; }
+
+/* ===========================================================
+ *  ОБЪЯВЛЕНИЯ
+ * =========================================================== */
+.announce_block {
+    background: var(--d-bg-2) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius-sm) !important;
+}
+.announce_block b { color: var(--d-text) !important; }
+.announce_text {
+    background: var(--d-bg-1) !important;
+    color: var(--d-text-dim) !important;
+    border-top: 1px dashed var(--d-border) !important;
+}
+.announce_text a, .announce_text a:visited {
+    color: var(--d-accent-soft) !important;
+    text-decoration: underline;
+    text-decoration-color: var(--d-text-faint);
+}
+.main-announce, .pr-announce {
+    background: var(--d-bg-2) !important;
+    border: 1px solid var(--d-border) !important;
+    border-left: 3px solid var(--d-bad) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 12px 16px !important;
+    color: var(--d-text-dim) !important;
+    font-size: 13px !important;
+}
+.main-announce strong { color: var(--d-text) !important; }
+.main-announce span[style*="color:red"], .main-announce span[style*="color: red"] {
+    color: var(--d-bad) !important;
+}
+
+/* Кнопка "Объявления" / сворачиватели */
+button[id^="click-to-hide-"] {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 6px 14px !important;
+    font-family: var(--d-font-display) !important;
+    font-size: 13px !important;
+    letter-spacing: .02em !important;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+button[id^="click-to-hide-"]:hover {
+    background: var(--d-bg-4) !important;
+    border-color: var(--d-accent-dim) !important;
+}
+button[id^="click-to-hide-"] img { filter: invert(1) grayscale(1) opacity(.55); }
+
+.adetail, .sdetail, .fa-caret-down, .fa-caret-up { color: var(--d-text-dim) !important; }
+
+/* ===========================================================
+ *  CRUD-ТАБЛИЦЫ
+ * =========================================================== */
+table.crud,
+.crudTable table.crud,
+.module-block .crudTable table.crud {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius);
+    overflow: hidden;
+    font-size: 13px;
+}
+table.crud th,
+.module-block .crudTable table.crud th {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text-dim) !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--d-border-2) !important;
+    background-image: none !important;
+    font-family: var(--d-font-mono) !important;
+    font-size: 11px !important;
+    letter-spacing: .06em !important;
+    text-transform: uppercase !important;
+    padding: 10px 12px !important;
+}
+table.crud td,
+.module-block .crudTable table.crud td {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--d-border-soft) !important;
+    padding: 9px 12px !important;
+}
+table.crud tr:nth-child(even) td,
+.module-block .crudTable table.crud tr:nth-child(even) td {
+    background: var(--d-bg-1) !important;
+}
+/* Обязательно отменяем яркий белый ховер из crud.css и new.css */
+table.crud tr:hover,
+table.crud tr:nth-child(even):hover,
+.module-block .crudTable tr:hover,
+.module-block .crudTable tr:nth-child(even):hover,
+.crudTable tr:hover {
+    background: transparent !important;
+}
+table.crud tr:hover td,
+table.crud tr:nth-child(even):hover td,
+.module-block .crudTable tr:hover td,
+.module-block .crudTable tr:nth-child(even):hover td,
+.module-block .crudTable table.crud tr:hover td,
+.crudTable tr:hover td {
+    background-color: var(--d-bg-3) !important;
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+}
+table.crud tr.selected td,
+.module-block .crudTable tr.selected td {
+    background: var(--d-bg-5) !important;
+    box-shadow: inset 2px 0 0 var(--d-accent);
+}
+table.crud td a:hover { color: var(--d-accent) !important; }
+
+/* Специфичные классы расписания / эфромерид */
+.schedule .crud tr:hover td,
+.schedule-block .crud tr:hover td,
+.schedule-desctop .crud tr:hover td,
+.module-block.schedule-block .crudTable tr:hover td,
+.module-block.schedule-block .crudTable tr:nth-child(even):hover td {
+    background: var(--d-bg-3) !important;
+    background-color: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+}
+/* Текущая пара / сейчас идёт */
+.currentPair td, tr.currentPair td,
+.crud tr.currentPair td, .crud .currentPair td {
+    background: var(--d-bg-4) !important;
+    color: var(--d-accent) !important;
+    box-shadow: inset 3px 0 0 var(--d-accent-dim);
+}
+
+/* Цветовые ряды CRUD — в монохроме с лёгким оттенком */
+.crud .silent td, .module-block .crudTable .silent td   { background: rgba(109,138,109,.10) !important; }
+.crud .silent:nth-child(even) td                         { background: rgba(109,138,109,.16) !important; }
+.crud .academ_debt td, .module-block .crudTable .academ_debt td        { background: rgba(181,160,112,.12) !important; }
+.crud .academ_debt:nth-child(even) td                                  { background: rgba(181,160,112,.18) !important; }
+.crud .documents_debt td, .module-block .crudTable .documents_debt td  { background: rgba(120,120,180,.14) !important; }
+.crud .documents_debt:nth-child(even) td                               { background: rgba(120,120,180,.20) !important; }
+.crud .inactive_session td, .module-block .crudTable .inactive_session td { background: rgba(181,160,112,.10) !important; }
+.crud .inactive_session:nth-child(even) td                                { background: rgba(181,160,112,.16) !important; }
+.crud .inactive td, .module-block .crudTable .inactive td               { background: rgba(176,116,176,.12) !important; }
+.crud .inactive:nth-child(even) td                                       { background: rgba(176,116,176,.18) !important; }
+.crud .finance_debt td, .module-block .crudTable .finance_debt td      { background: rgba(176,116,116,.16) !important; }
+.crud .finance_debt:nth-child(even) td                                   { background: rgba(176,116,116,.22) !important; }
+
+.crud-sortable:first-letter, th[sort]:first-letter { color: var(--d-accent) !important; }
+.crud .sorted-asc:after, .crud .sorted-desc:after,
+.crud-sortable:hover:after { color: var(--d-accent) !important; }
+
+/* Общие таблицы (не crud) */
+table:not(.crud) th {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text-dim) !important;
+    font-family: var(--d-font-mono) !important;
+    font-size: 11px !important;
+    letter-spacing: .06em !important;
+    text-transform: uppercase !important;
+    padding: 8px 10px !important;
+    border-bottom: 1px solid var(--d-border-2) !important;
+}
+table:not(.crud) td {
+    background: transparent !important;
+    color: var(--d-text) !important;
+    border-bottom: 1px solid var(--d-border-soft) !important;
+    padding: 8px 10px !important;
+}
+
+/* Зачётка — синий жирный → светло-серый */
+b[style*="color:#2b41b3"], span[style*="color:#2b41b3"], i[style*="color:#2b41b3"] {
+    color: var(--d-text) !important;
+}
+
+/* ===========================================================
+ *  ФОРМЫ
+ * =========================================================== */
+input[type="text"], input[type="password"], input[type="email"],
+input[type="search"], input[type="number"], input[type="tel"],
+input[type="url"], input[type="date"], input[type="time"],
+input[type="datetime-local"], select, textarea {
+    background: var(--d-bg-1) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+    box-shadow: none !important;
+    outline: none !important;
+    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+input:focus, select:focus, textarea:focus {
+    border-color: var(--d-accent-dim) !important;
+    background: var(--d-bg-2) !important;
+    box-shadow: 0 0 0 2px var(--d-accent-glow) !important;
+}
+input::placeholder, textarea::placeholder { color: var(--d-text-faint) !important; }
+select option { background: var(--d-bg-2); color: var(--d-text); }
+
+.field-wrap {
+    background: var(--d-bg-1) !important;
+    border: 1px solid var(--d-border-2) !important;
+    box-shadow: none !important;
+    border-radius: var(--d-radius-sm) !important;
+}
+.field-wrap input, .field-wrap select, .field-wrap textarea {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 4px 6px !important;
+}
+input[readonly="readonly"], input:read-only { color: var(--d-text-muted) !important; }
+
+span.checkbox {
+    background: var(--d-bg-1) !important;
+    border: 1px solid var(--d-border-2) !important;
+    color: var(--d-accent) !important;
+}
+span.checkbox.checked { background: var(--d-bg-4) !important; }
+
+/* Кнопки */
+button, input[type="submit"], input[type="button"], input[type="reset"],
+.button, .btn, .btnFile, .button.upload,
+a[class*="btn"] {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 8px 16px !important;
+    cursor: pointer;
+    box-shadow: none !important;
+    font-family: var(--d-font-mono) !important;
+    font-size: 12px !important;
+    letter-spacing: .04em !important;
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+button:hover, input[type="submit"]:hover, input[type="button"]:hover,
+.button:hover, .btn:hover, a[class*="btn"]:hover {
+    background: var(--d-bg-4) !important;
+    border-color: var(--d-accent-dim) !important;
+    color: var(--d-accent) !important;
+}
+
+.cropControls, .cropControlsUpload, .cropControlUpload {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius-sm) !important;
+}
+.filesName { color: var(--d-text-dim) !important; }
+
+/* ===========================================================
+ *  КАРТОЧКИ ОБЩЕГО НАЗНАЧЕНИЯ
+ * =========================================================== */
+.info-box, .note {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 8px 12px !important;
+}
+.note  { border-left: 3px solid var(--d-accent-dim) !important; }
+
+/* На disto.mveu.ru класс .alert используется И как контейнер сообщений,
+ * И как inline-подсказка ('span.alert' с текстом). Поэтому стилизуем
+ * .alert как мягкий inline-бейдж и обязательно прячем ПУСТОЙ вариант —
+ * иначе рядом с поиском в #search висит «жёлтый» прямоугольник. */
+.alert {
+    background: transparent !important;
+    color: var(--d-text-muted) !important;
+    border: 0 !important;
+    border-left: 0 !important;
+    padding: 0 !important;
+    margin-left: 8px !important;
+    font-size: 12px !important;
+    border-radius: 0 !important;
+}
+.alert:empty,
+#search .alert:empty,
+span.alert:empty {
+    display: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+}
+
+.discipline, .module-block, .schedule-block,
+.lesson_block, .lessons_wrap,
+.dnevnik, .documents, .library, .contacts, .contact_block,
+.gallery, .images, .doc-folder, ._docFolder, .doc-file {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius);
+}
+.lesson_title { background: var(--d-bg-3) !important; color: var(--d-text) !important; }
+
+/* Карусель */
+.carousel {
+    background: var(--d-bg-2) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius) !important;
+}
+.carousel .arrow {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border-2) !important;
+}
+.carousel .arrow:hover { background: var(--d-bg-4) !important; color: var(--d-accent) !important; }
+
+.speciality__item, .speciality__item h3 { color: var(--d-text) !important; }
+.speciality__item .item__wrapper::after {
+    background: linear-gradient(transparent, rgba(0,0,0,.85)) !important;
+}
+.speciality__item .item__wrapper:hover::after {
+    background: linear-gradient(transparent, rgba(38,38,45,.95)) !important;
+}
+.speciality__item .item__wrapper h3 span { color: var(--d-text-muted) !important; }
+
+/* DPO баннер */
+.dpo-programms { margin-bottom: 20px !important; }
+#show_dpo_programms, .dpo-programms button {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text-dim) !important;
+    border: 1px solid var(--d-border-2) !important;
+    padding: 8px 18px !important;
+    border-radius: var(--d-radius-sm) !important;
+    font-family: var(--d-font-mono) !important;
+    font-size: 12px !important;
+    letter-spacing: .04em !important;
+    cursor: pointer;
+}
+#show_dpo_programms:hover {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border-color: var(--d-accent-dim) !important;
+}
+.dpo-banner-background {
+    background: var(--d-bg-2) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius) !important;
+    filter: grayscale(.7) brightness(.85) !important;
+}
+.dpo-banner-text, .text-and-btn-dpo-banner-wrap { color: var(--d-text) !important; }
+
+/* ===========================================================
+ *  РАСПИСАНИЕ
+ * =========================================================== */
+.schedule-desctop, .schedule_mob, .schedule-nav, #schedule_mob {
+    background: var(--d-bg-1) !important;
+    color: var(--d-text) !important;
+}
+.dname, .dname-sticky, .sticky.week-day-column, .sticky {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border-color: var(--d-border) !important;
+}
+.date_and_wday, .single_date, .dates, .day_of_the_week {
+    color: var(--d-text-dim) !important;
+}
+
+/* Навигация по семестрам на странице дисциплины:
+ *   .semestr   (I/II/.../VIII и «Академические долги»)  — в оригинале background:#ccc, color:#000
+ *   .ssemestr  («Практики»)                       — в оригинале background:#278f49, color:#fff (ярко-зелёная)
+ *   .semestr.debt_semestr  (семестры с долгами)      — background:#ff0000
+ *   .semestr.practice_debt (семестры с долгами практики) — background:#cc00cc
+ * Перекрываем на монохром, выделяем особые только цветом рамки и текста. */
+.semestr,
+.ssemestr,
+div.semestr,
+div.ssemestr {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text-dim) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+    font-weight: 600 !important;
+    font-family: var(--d-font-mono) !important;
+    letter-spacing: .04em !important;
+    text-shadow: none !important;
+    transition: background var(--d-transition), color var(--d-transition), border-color var(--d-transition);
+}
+.semestr:hover,
+.ssemestr:hover {
+    background: var(--d-bg-4) !important;
+    color: var(--d-accent) !important;
+    border-color: var(--d-accent-dim) !important;
+}
+.ssemestr {
+    /* оригинал height:6px + padding:12px line-height:6px — странный лейаут;
+     * сбрасываем на нормальную кнопку */
+    height: 30px !important;
+    line-height: 30px !important;
+    padding: 0 14px !important;
+    color: var(--d-text) !important;
+    border-color: var(--d-accent-dim) !important;
+    box-shadow: inset 0 0 0 1px transparent;
+}
+.semestr.debt_semestr,
+div.semestr.debt_semestr {
+    background: var(--d-bg-3) !important;
+    color: var(--d-bad) !important;
+    border-color: var(--d-bad) !important;
+}
+.semestr.practice_debt,
+div.semestr.practice_debt {
+    background: var(--d-bg-3) !important;
+    color: var(--d-warn) !important;
+    border-color: var(--d-warn) !important;
+}
+/* Ссылки вокруг кнопок семестров — убираем подчеркивание */
+a[href*="/elms/semestr"],
+a[href="/elms/practice"],
+a[href="/elms/debt"] {
+    text-decoration: none !important;
+    color: inherit !important;
+}
+
+/* ===========================================================
+ *  СООБЩЕНИЯ / ЧАТ
+ * =========================================================== */
+/* #chat_window не трогаем по позиционированию — он отображается только
+ * при выбранном собеседнике (когда #search скрыт), его absolute-лейаут
+ * не мешает footer'у, т.к. #search уже даёт высоту #sub-content. */
+#chat_window, .messages {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius);
+}
+.my, .suser {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border-bottom: 1px solid var(--d-border-soft) !important;
+    border-left: 3px solid transparent !important;
+    padding: 10px 14px !important;
+    border-radius: var(--d-radius-sm) !important;
+}
+.my { border-left-color: var(--d-accent-dim) !important; }
+
+/* --- Центральная панель поиска / групп пользователей ---
+ * Оригинал ставит #search { position: absolute; width: 64.4%; height: 80% }.
+ * Абсолютное позиционирование выкидывает #search из потока документа,
+ * поэтому <footer> (внизу страницы) рендерится сразу под #status_bar и
+ * визуально оказывается ПОД списком преподавателей. Делаем #search
+ * relative-блоком в нормальном потоке — тогда footer уезжает под него. */
+#search {
+    position: relative !important;
+    background: var(--d-bg-2) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius) !important;
+    padding: 16px !important;
+    margin: 18px 0 !important;
+    width: 100% !important;
+    max-width: 460px !important;
+    height: auto !important;
+    box-shadow: var(--d-shadow);
+    box-sizing: border-box !important;
+    overflow: visible !important;
+}
+#search > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin-top: 14px !important;
+}
+#search > div:first-child { margin-top: 0 !important; }
+
+/* Метка «Поиск по фамилии» — заметный заголовок над инпутом */
+#search > div > b:first-child,
+#search > div > b {
+    display: block !important;
+    color: var(--d-text) !important;
+    font-family: var(--d-font-display) !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    letter-spacing: .08em !important;
+    text-transform: uppercase !important;
+    margin-bottom: 8px !important;
+    line-height: 1.2 !important;
+}
+/* Убираем <br> после метки — мы и так блочные */
+#search > div > br { display: none !important; }
+#psearch {
+    background: var(--d-bg-1) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 6px 12px !important;
+    height: auto !important;
+    font-family: var(--d-font-mono) !important;
+    width: 60% !important;
+}
+#psearch:focus {
+    outline: none;
+    border-color: var(--d-accent-dim) !important;
+}
+#bsearch {
+    color: var(--d-text-dim) !important;
+    padding: 4px 8px !important;
+    border-radius: var(--d-radius-sm) !important;
+    transition: color var(--d-transition);
+}
+#bsearch:hover { color: var(--d-accent) !important; }
+
+/* Заголовки групп (Кураторы/Преподаватели/Одногруппники) */
+.gtitle {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 8px 14px !important;
+    border: 1px solid var(--d-border) !important;
+    font-family: var(--d-font-display) !important;
+    font-size: 13px !important;
+    letter-spacing: .04em !important;
+    cursor: pointer;
+    transition: background var(--d-transition);
+}
+.gtitle:hover { background: var(--d-bg-4) !important; }
+.gtitle i.fa { color: var(--d-text-dim) !important; }
+.gtitle .uc_admin { color: var(--d-bad) !important; }
+.gtitle .uc_teacher { color: var(--d-ok) !important; }
+.gtitle b { font-weight: 600 !important; }
+.gtitle .fa-caret-square-o-down, .gtitle .fa-caret-square-o-up { color: var(--d-text-muted) !important; }
+
+/* Раскрывающиеся группы пользователей в #search (Кураторы / Преподаватели /
+ * Однокурсники). Список преподавателей может содержать тысячи строк, поэтому
+ * скроллим ВНУТРИ контейнера, а не в окне браузера. */
+.gulist {
+    margin: 10px 0 14px 0 !important;
+    max-height: 320px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    border: 1px solid var(--d-border-soft) !important;
+    border-radius: var(--d-radius-sm) !important;
+    background: var(--d-bg-1) !important;
+    padding: 4px 6px !important;
+}
+.gulist:empty,
+.gulist[style*="display: none"],
+.gulist[style*="display:none"] {
+    display: none !important;
+}
+
+.suser {
+    background: var(--d-bg-1) !important;
+    margin: 6px 0 !important;
+    padding: 8px 12px !important;
+    border-radius: var(--d-radius-sm) !important;
+    border: 1px solid var(--d-border-soft) !important;
+    border-left: 3px solid transparent !important;
+    cursor: pointer !important;
+    clear: both !important;
+    overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    transition: background var(--d-transition), border-color var(--d-transition);
+}
+.suser:hover {
+    background: var(--d-bg-3) !important;
+    border-color: var(--d-border-2) !important;
+    border-left-color: var(--d-accent-dim) !important;
+}
+.suser img {
+    float: none !important;
+    margin: 0 !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    flex-shrink: 0 !important;
+    background: var(--d-bg-3) !important;
+    border: 1px solid var(--d-border-2) !important;
+}
+.suser > div {
+    float: none !important;
+    color: var(--d-text);
+    min-width: 0;
+    flex: 1 1 auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.suser > div[style*="color:#aaa"],
+.suser > div[style*="color: #aaa"] {
+    color: var(--d-text-muted) !important;
+    font-size: 12px !important;
+}
+.uc_admin   { color: var(--d-bad)  !important; }
+.uc_teacher { color: var(--d-ok)   !important; }
+
+.my b, .suser b {
+    color: var(--d-text) !important;
+    font-family: var(--d-font-display);
+    font-size: 13px;
+}
+#chat_msg, #send_text {
+    background: var(--d-bg-1) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+}
+#send_text::placeholder { color: var(--d-text-muted) !important; }
+#send_text:focus {
+    outline: none;
+    border-color: var(--d-accent-dim) !important;
+}
+#send_button {
+    background: var(--d-bg-4) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+}
+#send_button:hover { background: var(--d-bg-5) !important; color: var(--d-accent) !important; }
+
+/* Сообщения в чате */
+.msg_text {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border-bottom: 1px solid var(--d-border-soft) !important;
+    padding: 8px 16px !important;
+    border-left: 3px solid transparent !important;
+    transition: background var(--d-transition);
+}
+.msg_text:hover {
+    background: var(--d-bg-3) !important;
+    border-left-color: var(--d-accent-dim) !important;
+}
+.munread {
+    background: rgba(244,244,247,0.05) !important;
+    border-left-color: var(--d-accent) !important;
+}
+.msg_text b { color: var(--d-accent) !important; font-family: var(--d-font-display); }
+.msg_text .date, .msg_text [class*="date"] { color: var(--d-text-muted) !important; font-family: var(--d-font-mono); font-size: 12px; }
+
+/* Кнопка выбора файла в чате */
+.chous {
+    background: var(--d-bg-4) !important;
+    color: var(--d-text-dim) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+    transition: background var(--d-transition), color var(--d-transition);
+}
+.chous:hover { background: var(--d-bg-5) !important; color: var(--d-accent) !important; }
+
+/* #contact_detail оригинально скрыт (display:none в message.css) и показывается
+ * jQuery'ем при выборе собеседника (тогда на элементе появляется
+ * инлайновое style="display:block").
+ *
+ * РАНЬШЕ БЫЛ БАГ: я использовал «negative» селектор
+ *   #contact_detail:not([style*="display:none"]) { display:flex !important }
+ * Но :not([style*=...]) проверяет ТОЛЬКО инлайновый style, а display:none
+ * приходит из message.css — внешнего CSS. Поэтому селектор срабатывал ВСЕГДА
+ * и пустой блок contact_detail накрывал «Поиск по фамилии».
+ * ИСПРАВЛЕНИЕ: применяем визуальные стили без display:flex,
+ * а flex-лейаут включаем ТОЛЬКО по позитивному совпадению инлайна:
+ * #contact_detail[style*="display: block"]. Когда скрыт внешним CSS —
+ * остаётся display:none, блок не виден. */
+#contact_detail {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius) !important;
+    padding: 14px 16px !important;
+    margin-bottom: 14px !important;
+    align-items: center !important;
+    gap: 14px !important;
+    height: auto !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+#contact_detail[style*="display:block"],
+#contact_detail[style*="display: block"],
+#contact_detail[style*="display:flex"],
+#contact_detail[style*="display: flex"] {
+    display: flex !important;
+}
+#contact_avatar {
+    float: none !important;
+    margin: 0 !important;
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    background: var(--d-bg-3) !important;
+    border: 1px solid var(--d-border-2) !important;
+    flex-shrink: 0 !important;
+}
+#contact_name {
+    color: var(--d-text) !important;
+    font-family: var(--d-font-display) !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+}
+#contact_title { color: var(--d-text-muted) !important; font-size: 12px !important; }
+
+.in_contact, .contact_block, .contact_cell, #contact_cell {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius-sm);
+}
+.contact_block:hover { background: var(--d-bg-3) !important; }
+.email, .tg, .vk { color: var(--d-text-dim) !important; }
+.online, .icontact { background: var(--d-ok) !important; color: var(--d-ok) !important; }
+.offline, .ocontact { background: var(--d-text-faint) !important; color: var(--d-text-faint) !important; }
+.cstext { color: var(--d-text-muted) !important; }
+
+.gmsg {
+    background: var(--d-bg-4) !important;
+    color: var(--d-accent) !important;
+    border-radius: var(--d-radius-sm);
+    padding: 2px 6px;
+    font-family: var(--d-font-mono);
+}
+
+/* Список контактов в чате (правая колонка) */
+[id^="u"][class*="active"], [id^="u"]:hover {
+    background: var(--d-bg-3) !important;
+}
+
+/* ===========================================================
+ *  ДИСЦИПЛИНЫ / ELMS (учебные материалы)
+ * =========================================================== */
+.discipline {
+    color: var(--d-text) !important;
+    cursor: pointer;
+    transition: color var(--d-transition);
+}
+.discipline:hover { color: var(--d-accent) !important; }
+
+/* Сайт прокидывает ярко-цветные заголовки/баннеры через инлайн-style
+ *   .dtitle               -> background:#a2c5e3 (голубой) или #ffe49b (жёлтый)
+ *   #wdetail/#tdetail     -> background:#91c482 (зелёный)
+ *   .practice-doсumentation-steps -> розовая плашка из elms.css
+ * Перебиваем на монохромные плашки в нашей палитре. */
+.dtitle,
+h3.dtitle,
+h3.dtitle[style] {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 10px 16px !important;
+    margin: 18px 0 10px 0 !important;
+    font-family: var(--d-font-display) !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    letter-spacing: .04em !important;
+    text-transform: uppercase !important;
+    text-decoration: none !important;
+    box-shadow: inset 3px 0 0 var(--d-accent-dim);
+}
+
+/* Шаги "Шаг 1/2/3" — оригинал использует яркий розовый/красный фон.
+ * Делаем строгую тёмную плашку с тонкой акцентной полосой слева.
+ * В имени класса используется кириллическая буква с (Cyrillic), поэтому селектор
+ * пишем через [class*="practice-do"], чтобы поймать любой вариант. */
+[class*="practice-do"] {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text-dim) !important;
+    border: 1px solid var(--d-border) !important;
+    border-left: 3px solid var(--d-accent-dim) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 10px 14px !important;
+    margin: 10px 0 !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+    text-decoration: none !important;
+}
+[class*="practice-do"] b {
+    color: var(--d-text) !important;
+    font-weight: 600 !important;
+}
+a[class*="practice-do"] {
+    display: inline-block !important;
+    color: var(--d-accent-soft) !important;
+    border-left-color: var(--d-accent) !important;
+}
+a[class*="practice-do"]:hover {
+    color: var(--d-accent) !important;
+    background: var(--d-bg-3) !important;
+}
+
+/* Кнопки/баджи "Отправка работ", "Тест" и т.п. */
+#wdetail, #tdetail,
+div#wdetail[style], div#tdetail[style] {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 8px 14px !important;
+    display: inline-block !important;
+    font-family: var(--d-font-mono) !important;
+    font-size: 12px !important;
+    letter-spacing: .04em !important;
+    cursor: pointer !important;
+    transition: background var(--d-transition), border-color var(--d-transition), color var(--d-transition);
+}
+#wdetail:hover, #tdetail:hover {
+    background: var(--d-bg-4) !important;
+    border-color: var(--d-accent-dim) !important;
+    color: var(--d-accent) !important;
+}
+
+/* Перекрываем инлайновые "яркие" background, которые сайт ставит
+ * прямо в style="..." — например background:#ffe49b на .dtitle
+ * или background:#59ba05 на .pay-button. */
+[style*="background:#a2c5e3"], [style*="background: #a2c5e3"],
+[style*="background:#ffe49b"], [style*="background: #ffe49b"],
+[style*="background:#91c482"], [style*="background: #91c482"],
+[style*="background:#59ba05"], [style*="background: #59ba05"],
+[style*="background:#ffd4d4"], [style*="background: #ffd4d4"],
+[style*="background:#ffe0e0"], [style*="background: #ffe0e0"],
+[style*="background:#9e0616"], [style*="background: #9e0616"],
+[style*="background-color:#a2c5e3"], [style*="background-color: #a2c5e3"],
+[style*="background-color:#ffe49b"], [style*="background-color: #ffe49b"],
+[style*="background-color:#91c482"], [style*="background-color: #91c482"],
+[style*="background-color:#59ba05"], [style*="background-color: #59ba05"] {
+    background: var(--d-bg-3) !important;
+    background-color: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+}
+
+.elms_dir, .elms_video, .elms_video_archive, .elms_file, .elms_link {
+    color: var(--d-text) !important;
+    cursor: pointer;
+    transition: transform var(--d-transition), opacity var(--d-transition);
+}
+.elms_dir:hover, .elms_video:hover, .elms_video_archive:hover, .elms_file:hover, .elms_link:hover {
+    color: var(--d-accent) !important;
+    transform: translateX(2px);
+}
+
+/* Белые "плитки" внутри директорий/видео — делаем тёмными карточками */
+.elms_dir .elms_dir_inner,
+.elms_video .elms_video_inner,
+.elms_video_archive .elms_video_inner,
+.elms_video_inner,
+.elms_dir_inner {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius-sm) !important;
+    padding: 12px 16px !important;
+    box-shadow: var(--d-shadow);
+    transition: background var(--d-transition), border-color var(--d-transition), transform var(--d-transition);
+}
+.elms_dir:hover .elms_dir_inner,
+.elms_video:hover .elms_video_inner,
+.elms_video_archive:hover .elms_video_inner {
+    background: var(--d-bg-3) !important;
+    border-color: var(--d-accent-dim) !important;
+}
+.elms_title { color: var(--d-text) !important; font-family: var(--d-font-display) !important; font-weight: 600 !important; }
+.elms_link .descr { color: var(--d-text-muted) !important; }
+.elms_link i.fa, .elms_dir i, .elms_video i, .elms_video_archive i, .elms_file i { color: var(--d-text-dim) !important; }
+
+#tdetail, #wdetail, .start_test, .set_answer, .step2time a {
+    background: var(--d-bg-4) !important;
+    color: var(--d-accent) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+    transition: background var(--d-transition);
+}
+#tdetail:hover, #wdetail:hover, .start_test:hover, .set_answer:hover, .step2time a:hover {
+    background: var(--d-bg-5) !important;
+}
+
+.mresult, .cback, .dback { color: var(--d-text-muted) !important; }
+.cback:hover, .dback:hover { color: var(--d-accent) !important; }
+#dresult { color: var(--d-accent) !important; font-family: var(--d-font-mono); }
+
+.test_info {
+    border-top: 1px dotted var(--d-border) !important;
+    color: var(--d-text-dim);
+    transition: background var(--d-transition);
+}
+.test_info:hover { background: var(--d-bg-3) !important; }
+
+.delimiter { border-top: 1px dotted var(--d-border) !important; }
+
+.wtitle td {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    font-family: var(--d-font-display);
+}
+#whistory tr:hover { background: var(--d-bg-3) !important; }
+
+.wcomm, textarea.wcomm {
+    background: var(--d-bg-1) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border-2) !important;
+    border-radius: var(--d-radius-sm) !important;
+}
+
+/* ===========================================================
+ *  FAQ / ТАБЫ / jQuery UI
+ * =========================================================== */
+.faq_wrapper .element .quest_block {
+    background: var(--d-bg-3) !important;
+    border: 1px solid var(--d-border-2) !important;
+    color: var(--d-text) !important;
+    border-radius: var(--d-radius-sm) !important;
+}
+.faq_wrapper .element.selected .quest_block { background: var(--d-bg-4) !important; }
+.faq_wrapper .element .sacred {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text-dim) !important;
+    border: 1px solid var(--d-border-soft) !important;
+    border-radius: var(--d-radius-sm) !important;
+}
+.menu_category, .menu_category.active, .menu_category.selected {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border-radius: var(--d-radius-sm) !important;
+}
+.menu_category:hover, .menu_category.selected { background: var(--d-bg-4) !important; }
+.element .inside_help, .help_tip {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border) !important;
+}
+.element .inside_help::before { border-bottom-color: var(--d-bg-3) !important; }
+
+._tab, .form-tabs ._tab {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text-dim) !important;
+    border: 1px solid var(--d-border) !important;
+    border-bottom: 0 !important;
+    border-radius: var(--d-radius-sm) var(--d-radius-sm) 0 0 !important;
+    padding: 8px 16px !important;
+    margin-right: 2px;
+    font-family: var(--d-font-display) !important;
+    font-size: 12.5px !important;
+}
+._tab.active, .form-tabs ._tab.active { color: var(--d-accent) !important; }
+._tab.active { background: var(--d-bg-3) !important; }
+._tabContent, ._tabContent.bright {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: 0 var(--d-radius-sm) var(--d-radius-sm) var(--d-radius-sm) !important;
+    padding: 14px !important;
+}
+
+.ui-widget, .ui-widget-content, .ui-widget-header {
+    background: var(--d-bg-2) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border) !important;
+    font-family: inherit !important;
+}
+.ui-widget-header {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text) !important;
+    border-bottom: 1px solid var(--d-border) !important;
+    font-family: var(--d-font-display) !important;
+    font-size: 12px !important;
+    letter-spacing: .04em !important;
+    text-transform: uppercase !important;
+}
+.ui-state-default, .ui-widget-content .ui-state-default {
+    background: var(--d-bg-3) !important;
+    color: var(--d-text-dim) !important;
+    border: 1px solid var(--d-border) !important;
+}
+.ui-state-hover, .ui-state-focus,
+.ui-widget-content .ui-state-hover {
+    background: var(--d-bg-4) !important;
+    color: var(--d-accent) !important;
+    border-color: var(--d-accent-dim) !important;
+}
+.ui-state-active, .ui-widget-content .ui-state-active {
+    background: var(--d-accent) !important;
+    color: var(--d-bg-0) !important;
+    border-color: var(--d-accent) !important;
+}
+.ui-datepicker {
+    background: var(--d-bg-2) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius) !important;
+    box-shadow: var(--d-shadow-lg) !important;
+}
+.ui-datepicker .ui-datepicker-today a {
+    background: var(--d-accent-glow) !important;
+    color: var(--d-accent) !important;
+    border-color: var(--d-border-2) !important;
+}
+
+/* ===========================================================
+ *  СКРОЛЛБАРЫ
+ * =========================================================== */
+.slimScrollBar { background: var(--d-bg-5) !important; opacity: .55 !important; border-radius: 4px !important; }
+.slimScrollRail { background: var(--d-bg-2) !important; opacity: .2 !important; }
+.nicescroll-cursors { background-color: var(--d-bg-5) !important; }
+.nicescroll-rails { background: var(--d-bg-2) !important; opacity: .3 !important; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--d-bg-1); }
+::-webkit-scrollbar-thumb {
+    background: var(--d-bg-4);
+    border-radius: 8px;
+    border: 2px solid var(--d-bg-1);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--d-bg-5); }
+* { scrollbar-color: var(--d-bg-4) var(--d-bg-1); scrollbar-width: thin; }
+
+::selection { background: var(--d-accent); color: var(--d-bg-0); }
+
+/* ===========================================================
+ *  Промо-баннеры
+ * =========================================================== */
+#show_promocode {
+    background: var(--d-bg-4) !important;
+    color: var(--d-text) !important;
+    box-shadow: 0 0 0 1px var(--d-border-2) inset !important;
+    font-family: var(--d-font-mono) !important;
+}
+.curved-text text { fill: var(--d-text-dim) !important; }
+.dotherapy-logo { filter: grayscale(1) brightness(.95) contrast(1.05); }
+
+/* ===========================================================
+ *  Картинки / медиа
+ * =========================================================== */
+.user_avatar, #contact_avatar {
+    filter: grayscale(.35) !important;
+    border: 1px solid var(--d-border-2);
+}
+
+/* Footer */
+footer, footer ul, footer li {
+    background: transparent !important;
+    color: var(--d-text-muted) !important;
+    border-color: var(--d-border) !important;
+}
+footer li { border-right-color: var(--d-border) !important; }
+footer strong, footer span {
+    color: var(--d-text-dim) !important;
+    font-family: var(--d-font-mono) !important;
+    font-size: 11px !important;
+    letter-spacing: .04em !important;
+}
+footer a {
+    color: var(--d-accent-soft) !important;
+    font-size: 12px !important;
+}
+footer a:hover { color: var(--d-accent) !important; opacity: 1 !important; }
+footer img { filter: grayscale(1) invert(.85) opacity(.7); }
+
+/* ===========================================================
+ *  Прочие мелочи
+ * =========================================================== */
+hr { border: 0; border-top: 1px solid var(--d-border); }
+code, pre, kbd, samp {
+    background: var(--d-bg-1) !important;
+    color: var(--d-text) !important;
+    border: 1px solid var(--d-border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: var(--d-font-mono) !important;
+}
+blockquote {
+    background: var(--d-bg-2);
+    border-left: 3px solid var(--d-border-2);
+    color: var(--d-text-dim);
+    padding: 8px 12px;
+    margin: 8px 0;
+    border-radius: 0 var(--d-radius-sm) var(--d-radius-sm) 0;
+}
+
+iframe, embed, object { background: var(--d-bg-2); border-radius: var(--d-radius-sm); }
+
+#activation, #intro, .auth, .login-form {
+    background: var(--d-bg-2) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius);
+    color: var(--d-text);
+}
+
+/* FontAwesome — наследуют цвет родителя где это уместно */
+.fa { color: inherit; }
+
+/* Плавное появление страницы.
+ * ВНИМАНИЕ: НЕ используем transform в @keyframes — с fill-mode: both
+ * это оставляет на body translateY(0), что создаёт containing block
+ * для position:fixed/absolute элементов. Из-за этого #menu (fixed)
+ * прокручивается вместе с контентом и "уезжает" наверх. Только
+ * opacity безопасна. */
+body { animation: tm-fadein .28s ease both !important; }
+@keyframes tm-fadein {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+`;
+
+    /* ----------------------------------------------------------- */
+    /*  Инъекция стилей: до отрисовки документа и сразу же.        */
+    /* ----------------------------------------------------------- */
+    function injectCSS(css) {
+        if (typeof GM_addStyle === 'function') {
+            try { GM_addStyle(css); return; } catch (_) { /* fallthrough */ }
+        }
+        const style = document.createElement('style');
+        style.id = 'disto-dark-mono';
+        style.type = 'text/css';
+        style.textContent = css;
+        (document.head || document.documentElement).appendChild(style);
+    }
+    injectCSS(CSS);
+
+    /* ----------------------------------------------------------- */
+    /*  После DOM ready: точечные правки JS                        */
+    /* ----------------------------------------------------------- */
+    function onReady(fn) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', fn, { once: true });
+        } else {
+            fn();
+        }
+    }
+
+    function addDarkBadge() {
+        try {
+            const bar = document.getElementById('status_bar');
+            if (!bar || document.getElementById('tm-dark-badge')) return;
+            const widgets = bar.querySelector('.top-widgets') || bar;
+            const badge = document.createElement('span');
+            badge.id = 'tm-dark-badge';
+            badge.textContent = '◑ DARK';
+            badge.title = 'InStudy Dark Mono — Tampermonkey';
+            widgets.appendChild(badge);
+        } catch (_) { /* noop */ }
+    }
+
+    function setupMeta() {
+        try {
+            let meta = document.querySelector('meta[name="theme-color"]');
+            if (!meta) {
+                meta = document.createElement('meta');
+                meta.name = 'theme-color';
+                document.head.appendChild(meta);
+            }
+            meta.content = '#0e0e11';
+        } catch (_) { /* noop */ }
+    }
+
+    function ensureDarkBaseline() {
+        try {
+            document.documentElement.style.background = '#0e0e11';
+            if (document.body) document.body.style.background = '#0e0e11';
+        } catch (_) { /* noop */ }
+    }
+
+    function disableColorTheme() {
+        // Отключаем "цветной" stylesheet темы (blue.css / pink.css), чтобы синие
+        // акценты не пробивались поверх нашего монохрома.
+        try {
+            const ustyle = document.getElementById('ustyle');
+            if (ustyle) ustyle.disabled = true;
+        } catch (_) { /* noop */ }
+    }
+
+    function strikeInlineWhites(root) {
+        // Удаляем явные белые фоны / чёрный текст в инлайн-стилях.
+        try {
+            const scope = root && root.querySelectorAll ? root : document;
+            scope.querySelectorAll('[style]').forEach((el) => {
+                const s = (el.getAttribute('style') || '').toLowerCase();
+                if (/background[^;]*(\#fff|\#ffffff|white)/.test(s)) {
+                    el.style.removeProperty('background');
+                    el.style.removeProperty('background-color');
+                }
+                if (/(^|;)\s*color\s*:\s*(\#000|\#000000|black)\b/.test(s)) {
+                    el.style.removeProperty('color');
+                }
+            });
+        } catch (_) { /* noop */ }
+    }
+
+    function fixBrokenAvatars(root) {
+        // На сайте встречаются невалидные .jpg аватары (в т.ч. с профиля пользователя).
+        // Бывают случаи, когда файл отдаётся как HTTP 200, но содержимое не является
+        // картинкой — браузер рисует сломанный placeholder. Подставляем свой.
+        try {
+            const scope = root && root.querySelectorAll ? root : document;
+            const targets = scope.querySelectorAll(
+                'img.user_avatar, img#contact_avatar, .top-avatar img, .suser img'
+            );
+            targets.forEach((img) => {
+                if (img.dataset.tmAvatarChecked) return;
+                img.dataset.tmAvatarChecked = '1';
+                // Если src вообще пустой — это не сломанная картинка, а неинициализированный
+                // элемент (напр. #contact_avatar до выбора собеседника). Рисовать
+                // фолбек «П» не надо — это выглядит как «висячий» аватар в странном месте.
+                const rawSrc = (img.getAttribute('src') || '').trim();
+                if (!rawSrc) {
+                    img.style.setProperty('display', 'none', 'important');
+                    return;
+                }
+                const handleBroken = () => {
+                    if (img.complete && img.naturalWidth === 0) {
+                        replaceWithFallback(img);
+                    }
+                };
+                if (img.complete) handleBroken();
+                img.addEventListener('load', () => {
+                    if (img.naturalWidth === 0) replaceWithFallback(img);
+                });
+                img.addEventListener('error', () => replaceWithFallback(img));
+            });
+        } catch (_) { /* noop */ }
+    }
+
+    function replaceWithFallback(img) {
+        try {
+            if (!img || !img.parentElement || img.dataset.tmFallbackApplied) return;
+            img.dataset.tmFallbackApplied = '1';
+            img.style.setProperty('display', 'none', 'important');
+            // Не дублируем фолбек, если уже есть
+            const parent = img.parentElement;
+            if (parent.querySelector(':scope > .tm-avatar-fallback')) return;
+            const span = document.createElement('span');
+            span.className = 'tm-avatar-fallback';
+            // Первая буква имени, если можем найти рядом
+            let letter = '◐';
+            const sib = parent.parentElement || parent;
+            const nameEl = sib.querySelector('b, #contact_name, .top-user-info b');
+            if (nameEl && nameEl.textContent) {
+                const m = nameEl.textContent.trim().match(/[А-ЯЁа-яёA-Za-z]/);
+                if (m) letter = m[0].toUpperCase();
+            }
+            span.textContent = letter;
+            parent.appendChild(span);
+        } catch (_) { /* noop */ }
+    }
+
+    function freeMenuFromSlimScroll() {
+        // SlimScroll задаёт фиксированную высоту ul#menu_item и обрезает его.
+        // Сбрасываем, чтобы меню могло раскрываться при hover и показывать все пункты.
+        try {
+            const ul = document.getElementById('menu_item');
+            if (ul) {
+                ul.style.setProperty('height', 'auto', 'important');
+                ul.style.setProperty('overflow', 'visible', 'important');
+                ul.style.setProperty('width', '100%', 'important');
+            }
+            const wraps = document.querySelectorAll('#menu .slimScrollDiv');
+            wraps.forEach((w) => {
+                w.style.setProperty('height', 'auto', 'important');
+                w.style.setProperty('overflow', 'visible', 'important');
+                w.style.setProperty('width', '100%', 'important');
+            });
+        } catch (_) { /* noop */ }
+    }
+
+    onReady(() => {
+        setupMeta();
+        ensureDarkBaseline();
+        disableColorTheme();
+        freeMenuFromSlimScroll();
+        addDarkBadge();
+        strikeInlineWhites(document);
+        fixBrokenAvatars(document);
+
+        // MutationObserver для AJAX-вставок:
+        try {
+            const observer = new MutationObserver((mutations) => {
+                let touched = false;
+                mutations.forEach((m) => {
+                    m.addedNodes.forEach((n) => {
+                        if (n.nodeType === 1) {
+                            strikeInlineWhites(n);
+                            fixBrokenAvatars(n);
+                            touched = true;
+                        }
+                    });
+                });
+                if (touched) {
+                    freeMenuFromSlimScroll();
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        } catch (_) { /* noop */ }
+    });
+})();
