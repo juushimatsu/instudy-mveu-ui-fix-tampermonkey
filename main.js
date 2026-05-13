@@ -2180,8 +2180,102 @@ body:not(:has(#menu)) #status_bar {
     box-shadow: 0 4px 32px rgba(0,0,0,.6) !important;
     object-fit: contain !important;
 }
-`;
 
+/* ===========================================================
+ *  Акцентный выбор и плотность — UI
+ * =========================================================== */
+#tm-accent-toggle {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    border-radius: 50% !important;
+    background: var(--d-bg-3) !important;
+    border: 1px solid var(--d-border) !important;
+    color: var(--d-text-dim) !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+    padding: 0 !important;
+    margin: 0 4px 0 0 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    transition: background var(--d-transition), border-color var(--d-transition), color var(--d-transition) !important;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    box-shadow: none !important;
+}
+#tm-accent-toggle:hover {
+    background: var(--d-bg-4) !important;
+    border-color: var(--d-border-2) !important;
+    color: var(--d-text) !important;
+}
+
+#tm-accent-popup {
+    position: absolute !important;
+    top: calc(100% + 8px) !important;
+    right: 0 !important;
+    background: var(--d-bg-3) !important;
+    border: 1px solid var(--d-border) !important;
+    border-radius: var(--d-radius) !important;
+    padding: 10px !important;
+    display: none;
+    gap: 10px !important;
+    z-index: 10000 !important;
+    box-shadow: var(--d-shadow-lg) !important;
+}
+
+#tm-accent-popup.tm-open {
+    display: inline-flex !important;
+}
+
+.tm-accent-dot {
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 50% !important;
+    cursor: pointer !important;
+    border: 2px solid transparent !important;
+    transition: transform .15s ease, border-color .15s ease !important;
+    flex-shrink: 0 !important;
+}
+.tm-accent-dot:hover {
+    transform: scale(1.15) !important;
+}
+.tm-accent-dot.tm-active {
+    border-color: var(--d-text) !important;
+}
+
+#tm-density-toggle {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    border-radius: 50% !important;
+    background: var(--d-bg-3) !important;
+    border: 1px solid var(--d-border) !important;
+    color: var(--d-text-dim) !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+    padding: 0 !important;
+    margin: 0 4px 0 0 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    transition: background var(--d-transition), border-color var(--d-transition), color var(--d-transition) !important;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    box-shadow: none !important;
+}
+#tm-density-toggle:hover {
+    background: var(--d-bg-4) !important;
+    border-color: var(--d-border-2) !important;
+    color: var(--d-text) !important;
+}
+`;
     /* ----------------------------------------------------------- */
     /*  Инъекция стилей: до отрисовки документа и сразу же.        */
     /* ----------------------------------------------------------- */
@@ -2972,6 +3066,178 @@ body:not(:has(#menu)) #status_bar {
         }
     }
 
+    /* -----------------------------------------------------------
+     *  Акцентные цветовые схемы
+     * ----------------------------------------------------------- */
+    function applyAccent(name) {
+        try {
+            var accentMap = {
+                mono:    { accent: '#f4f4f7', soft: '#c8c8d0', dim: '#80808a', glow: 'rgba(244,244,247,0.08)' },
+                ocean:   { accent: '#4a9eff', soft: '#7ab8ff', dim: '#2a6abf', glow: 'rgba(74,158,255,0.10)' },
+                crimson: { accent: '#c25f5f', soft: '#d98080', dim: '#8a3a3a', glow: 'rgba(194,95,95,0.10)' },
+                amber:   { accent: '#c8903a', soft: '#dba85a', dim: '#8a6020', glow: 'rgba(200,144,58,0.10)' },
+                forest:  { accent: '#5a9e6f', soft: '#7aba8f', dim: '#3a7050', glow: 'rgba(90,158,111,0.10)' }
+            };
+            var theme = accentMap[name] || accentMap.mono;
+            var css = ':root {'
+                + ' --d-accent: ' + theme.accent + ';'
+                + ' --d-accent-soft: ' + theme.soft + ';'
+                + ' --d-accent-dim: ' + theme.dim + ';'
+                + ' --d-accent-glow: ' + theme.glow + ';'
+                + ' }';
+            var style = document.getElementById('tm-accent');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'tm-accent';
+                (document.head || document.documentElement).appendChild(style);
+            }
+            style.textContent = css;
+            localStorage.setItem('tm-accent', name || 'mono');
+        } catch (_) { /* noop */ }
+    }
+
+    function injectAccentPicker() {
+        try {
+            var bar = document.getElementById('status_bar');
+            if (!bar) return;
+            if (document.getElementById('tm-accent-toggle')) return;
+
+            var btn = document.createElement('button');
+            btn.id = 'tm-accent-toggle';
+            btn.type = 'button';
+            btn.title = 'Акцентный цвет';
+            btn.textContent = '\u{1F3A8}';
+
+            var popup = document.createElement('div');
+            popup.id = 'tm-accent-popup';
+            var accents = [
+                { name: 'mono',    color: '#f4f4f7' },
+                { name: 'ocean',   color: '#4a9eff' },
+                { name: 'crimson', color: '#c25f5f' },
+                { name: 'amber',   color: '#c8903a' },
+                { name: 'forest',  color: '#5a9e6f' }
+            ];
+            accents.forEach(function (a) {
+                var dot = document.createElement('span');
+                dot.className = 'tm-accent-dot';
+                dot.style.background = a.color;
+                dot.dataset.accent = a.name;
+                if ((localStorage.getItem('tm-accent') || 'mono') === a.name) {
+                    dot.classList.add('tm-active');
+                }
+                dot.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    applyAccent(a.name);
+                    popup.querySelectorAll('.tm-accent-dot').forEach(function (d) { d.classList.remove('tm-active'); });
+                    dot.classList.add('tm-active');
+                    popup.classList.remove('tm-open');
+                });
+                popup.appendChild(dot);
+            });
+
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                popup.classList.toggle('tm-open');
+            });
+            document.addEventListener('click', function () {
+                popup.classList.remove('tm-open');
+            });
+
+            var wrapper = document.createElement('div');
+            wrapper.id = 'tm-accent-wrapper';
+            wrapper.style.position = 'relative';
+            wrapper.style.display = 'inline-flex';
+            wrapper.appendChild(btn);
+            wrapper.appendChild(popup);
+
+            var avatar = bar.querySelector('.top-avatar');
+            var weatherBtn = document.getElementById('tm-weather-toggle');
+            if (weatherBtn && weatherBtn.parentNode) {
+                weatherBtn.parentNode.insertBefore(wrapper, weatherBtn.nextSibling);
+            } else if (avatar) {
+                avatar.parentNode.insertBefore(wrapper, avatar);
+            } else {
+                bar.appendChild(wrapper);
+            }
+        } catch (_) { /* noop */ }
+    }
+
+    /* -----------------------------------------------------------
+     *  Режим плотности
+     * ----------------------------------------------------------- */
+    function applyDensity(mode) {
+        try {
+            var valid = ['compact', 'normal', 'wide'];
+            var m = valid.indexOf(mode) !== -1 ? mode : 'normal';
+            document.documentElement.setAttribute('data-density', m);
+            var css = '';
+            if (m === 'compact') {
+                css = '[data-density="compact"] body { font-size: 13px !important; }'
+                    + '[data-density="compact"] #status_bar { height: 56px !important; }'
+                    + '[data-density="compact"] .btn, [data-density="compact"] button { padding: 4px 10px !important; }';
+            } else if (m === 'wide') {
+                css = '[data-density="wide"] body { font-size: 16px !important; }'
+                    + '[data-density="wide"] #status_bar { height: 84px !important; }'
+                    + '[data-density="wide"] .btn, [data-density="wide"] button { padding: 10px 20px !important; }';
+            }
+            var style = document.getElementById('tm-density');
+            if (!style) {
+                style = document.createElement('style');
+                style.id = 'tm-density';
+                (document.head || document.documentElement).appendChild(style);
+            }
+            style.textContent = css;
+            localStorage.setItem('tm-density', m);
+
+            var btn = document.getElementById('tm-density-toggle');
+            if (btn) {
+                var icons = { compact: '\u229f', normal: '\u229e', wide: '\u229f\u229f' };
+                btn.textContent = icons[m] || icons.normal;
+                var titles = { compact: 'Компактно', normal: 'Нормально', wide: 'Широко' };
+                btn.title = titles[m] || titles.normal;
+            }
+        } catch (_) { /* noop */ }
+    }
+
+    function injectDensityToggle() {
+        try {
+            var bar = document.getElementById('status_bar');
+            if (!bar) return;
+            if (document.getElementById('tm-density-toggle')) return;
+
+            var btn = document.createElement('button');
+            btn.id = 'tm-density-toggle';
+            btn.type = 'button';
+
+            var states = ['compact', 'normal', 'wide'];
+            var current = localStorage.getItem('tm-density') || 'normal';
+            var idx = states.indexOf(current);
+            if (idx < 0) idx = 1;
+
+            var icons = { compact: '\u229f', normal: '\u229e', wide: '\u229f\u229f' };
+            var titles = { compact: 'Компактно', normal: 'Нормально', wide: 'Широко' };
+            btn.textContent = icons[current] || icons.normal;
+            btn.title = titles[current] || titles.normal;
+
+            btn.addEventListener('click', function () {
+                var cur = localStorage.getItem('tm-density') || 'normal';
+                var i = states.indexOf(cur);
+                var next = states[(i + 1) % states.length];
+                applyDensity(next);
+            });
+
+            var avatar = bar.querySelector('.top-avatar');
+            var accentWrap = document.getElementById('tm-accent-wrapper');
+            if (accentWrap && accentWrap.parentNode === bar) {
+                bar.insertBefore(btn, accentWrap.nextSibling);
+            } else if (avatar) {
+                avatar.parentNode.insertBefore(btn, avatar);
+            } else {
+                bar.appendChild(btn);
+            }
+        } catch (_) { /* noop */ }
+    }
+
     // Применяем сохранённую тему как можно раньше (до DOMContentLoaded)
     (function earlyTheme() {
         const t = getCurrentTheme();
@@ -3029,5 +3295,10 @@ body:not(:has(#menu)) #status_bar {
             });
             observer.observe(document.body, { childList: true, subtree: true });
         } catch (_) { /* noop */ }
+
+        injectAccentPicker();
+        applyAccent(localStorage.getItem('tm-accent') || 'mono');
+        injectDensityToggle();
+        applyDensity(localStorage.getItem('tm-density') || 'normal');
     });
 })();
