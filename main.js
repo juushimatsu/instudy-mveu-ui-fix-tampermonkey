@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.8.7
+// @version      1.8.8
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -2100,18 +2100,34 @@ body:not(:has(#menu)) #status_bar {
 
 /* ===========================================================
  *  Чат — улучшенный лейаут
+ *  Поле ввода и кнопка файла абсолютно позиционированы внизу
+ *  #chat_window. Добавляем отступ снизу, чтобы сообщения
+ *  не прятались за ними.
  * =========================================================== */
 #chat_msg {
     overflow-y: auto !important;
-    padding: 12px 12px 60px 12px !important;
+    padding-bottom: 70px !important;
+    margin-bottom: 0 !important;
 }
-
-/* Область ввода сообщения */
+.messages {
+    padding-bottom: 60px !important;
+}
+/* Поле ввода — поднимаем z-index чтобы было кликабельным */
 #send_text {
+    position: relative !important;
+    z-index: 2 !important;
     min-height: 42px !important;
     resize: none !important;
     font-size: 14px !important;
     padding: 10px 14px !important;
+}
+.btnFile {
+    position: relative !important;
+    z-index: 2 !important;
+}
+#send_button {
+    position: relative !important;
+    z-index: 2 !important;
 }
 `;
 
