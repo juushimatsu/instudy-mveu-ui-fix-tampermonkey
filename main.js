@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.9.0
+// @version      1.9.1
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -1262,10 +1262,10 @@ a[href="/elms/debt"] {
     border-radius: var(--d-radius-sm) !important;
 }
 #send_text {
-    height: 28px !important;
-    min-height: 28px !important;
-    max-height: 28px !important;
-    padding: 4px 8px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+    padding: 5px 10px !important;
     font-size: 13px !important;
     line-height: 20px !important;
     resize: none !important;
@@ -1280,8 +1280,10 @@ a[href="/elms/debt"] {
     color: var(--d-text) !important;
     border: 1px solid var(--d-border-2) !important;
     border-radius: var(--d-radius-sm) !important;
-    padding: 4px 8px !important;
-    font-size: 12px !important;
+    padding: 6px 10px !important;
+    font-size: 13px !important;
+    height: 32px !important;
+    box-sizing: border-box !important;
 }
 #send_button:hover { background: var(--d-bg-5) !important; color: var(--d-accent) !important; }
 
@@ -1341,10 +1343,14 @@ a[href="/elms/debt"] {
     border-radius: var(--d-radius-sm) !important;
     padding: 4px 8px !important;
     font-size: 12px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    box-sizing: border-box !important;
     cursor: pointer !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
+    overflow: hidden !important;
     transition: background var(--d-transition), color var(--d-transition);
 }
 .btnFile .chous:hover { background: var(--d-bg-5) !important; color: var(--d-accent) !important; }
