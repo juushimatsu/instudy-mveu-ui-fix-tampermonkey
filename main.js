@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.9.8
+// @version      2.0.0
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -2352,37 +2352,54 @@ body:not(:has(#menu)) #status_bar {
         } catch (_) { /* noop */ }
     }
 
-    function lazyLoadGulist() {
-        // Список преподавателей (.gulist) может содержать тысячи элементов.
-        // Показываем первую порцию, остальные подгружаем по скроллу.
-        // Используем CSS-класс .tm-hidden вместо inline style для производительности.
+    function virtualGulist() {
+        // Настоящий virtual scroll для .gulist: рендерим только видимые элементы + буфер.
+        // Элементы вне viewport полностью удалены из DOM, что резко снижает нагрузку
+        // при тысячах преподавателей/студентов.
         try {
-            const BATCH = 80;
-            document.querySelectorAll('.gulist').forEach((list) => {
-                if (list.dataset.tmLazy) return;
-                list.dataset.tmLazy = '1';
-                const children = list.children;
-                var total = children.length;
-                if (total <= BATCH) return;
+            var ITEM_H = 58;   // ~высота .suser + margin (contain-intrinsic-size: 0 52px)
+            var BUFFER = 10;   // элементов сверху/снизу за пределами viewport
 
-                for (let i = BATCH; i < total; i++) {
-                    children[i].classList.add('tm-hidden');
+            document.querySelectorAll('.gulist').forEach(function (list) {
+                if (list.dataset.tmVirtual) return;
+                list.dataset.tmVirtual = '1';
+
+                var items = Array.prototype.slice.call(list.children);
+                var total = items.length;
+                if (total <= 100) return; // мало элементов — обычный lazy-load достаточен
+
+                // Сохраняем HTML каждого элемента
+                var htmlCache = items.map(function (el) { return el.outerHTML; });
+                list.innerHTML = '';
+
+                var spacerTop = document.createElement('div');
+                var content = document.createElement('div');
+                var spacerBottom = document.createElement('div');
+
+                list.appendChild(spacerTop);
+                list.appendChild(content);
+                list.appendChild(spacerBottom);
+
+                var lastRange = '';
+
+                function update() {
+                    var scrollTop = list.scrollTop;
+                    var clientH = list.clientHeight;
+                    var startIdx = Math.max(0, Math.floor(scrollTop / ITEM_H) - BUFFER);
+                    var endIdx = Math.min(total, Math.ceil((scrollTop + clientH) / ITEM_H) + BUFFER);
+
+                    spacerTop.style.height = (startIdx * ITEM_H) + 'px';
+                    spacerBottom.style.height = ((total - endIdx) * ITEM_H) + 'px';
+
+                    var rangeKey = startIdx + '-' + endIdx;
+                    if (rangeKey === lastRange) return; // диапазон не изменился
+                    lastRange = rangeKey;
+
+                    content.innerHTML = htmlCache.slice(startIdx, endIdx).join('');
                 }
-                let shown = BATCH;
 
-                list.addEventListener('scroll', function onScroll() {
-                    if (shown >= total) {
-                        list.removeEventListener('scroll', onScroll);
-                        return;
-                    }
-                    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 100) {
-                        const end = Math.min(shown + BATCH, total);
-                        for (let i = shown; i < end; i++) {
-                            children[i].classList.remove('tm-hidden');
-                        }
-                        shown = end;
-                    }
-                });
+                update();
+                list.addEventListener('scroll', update, { passive: true });
             });
         } catch (_) { /* noop */ }
     }
@@ -2484,6 +2501,7 @@ body:not(:has(#menu)) #status_bar {
      *  Атмосферные частицы (дождь / снег)
      * ----------------------------------------------------------- */
     var animationFrameId = null;
+    var tmImageCache = {}; // href -> { blobUrl, mimeType }
 
     function getCurrentWeather() {
         try {
@@ -2529,7 +2547,8 @@ body:not(:has(#menu)) #status_bar {
 
             function draw() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.strokeStyle = 'rgba(180, 180, 200, 0.35)';
+                var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+                ctx.strokeStyle = isLight ? 'rgba(40, 40, 80, 0.5)' : 'rgba(180, 180, 200, 0.35)';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 for (var i = 0; i < drops.length; i++) {
@@ -2568,7 +2587,8 @@ body:not(:has(#menu)) #status_bar {
 
             function draw() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = 'rgba(220, 230, 255, 0.7)';
+                var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+                ctx.fillStyle = isLight ? 'rgba(80, 100, 160, 0.55)' : 'rgba(220, 230, 255, 0.7)';
                 time += 0.01;
                 for (var i = 0; i < flakes.length; i++) {
                     var f = flakes[i];
@@ -2758,26 +2778,11 @@ body:not(:has(#menu)) #status_bar {
     function inlineChatImages() {
         try {
             var chatMsg = document.getElementById('chat_msg');
-            console.log('[TM] inlineChatImages called, chatMsg=', chatMsg);
             if (!chatMsg) return;
 
-            // Логируем структуру первых сообщений для отладки
-            var msgs = chatMsg.querySelectorAll('.msg_text');
-            console.log('[TM] found .msg_text elements:', msgs.length);
-            if (msgs.length > 0) {
-                for (var k = 0; k < Math.min(msgs.length, 3); k++) {
-                    console.log('[TM] msg[' + k + '] innerHTML:', msgs[k].innerHTML.substring(0, 500));
-                }
-            }
-
-            // Ищем ссылки шире: сначала в .msg_text, потом во всем #chat_msg
             var links = chatMsg.querySelectorAll('.msg_text a[href]');
-            console.log('[TM] found links in .msg_text:', links.length);
-
-            // Если не нашли — ищем все ссылки в #chat_msg
-            if (links.length === 0) {
+            if (!links.length) {
                 links = chatMsg.querySelectorAll('a[href*="/uploads/mveo/message/"]');
-                console.log('[TM] found links by href pattern:', links.length);
             }
 
             if (!links.length) return;
@@ -2792,22 +2797,10 @@ body:not(:has(#menu)) #status_bar {
                 var cleanHref = href.split('?')[0].split('#')[0];
                 var text = (a.textContent || '').trim();
 
-                console.log('[TM] checking link:', href, 'text:', text);
+                if (!cleanHref.includes('/uploads/mveo/message/')) continue;
+                if (!cleanHref.toLowerCase().endsWith('.zip')) continue;
+                if (!imgExts.test(text)) continue;
 
-                if (!cleanHref.includes('/uploads/mveo/message/')) {
-                    console.log('[TM] skipped: no /uploads/mveo/message/');
-                    continue;
-                }
-                if (!cleanHref.toLowerCase().endsWith('.zip')) {
-                    console.log('[TM] skipped: not .zip');
-                    continue;
-                }
-                if (!imgExts.test(text)) {
-                    console.log('[TM] skipped: text not image');
-                    continue;
-                }
-
-                console.log('[TM] processing:', text);
                 a.setAttribute('data-tm-img', '1');
 
                 var placeholder = document.createElement('div');
@@ -2843,10 +2836,7 @@ body:not(:has(#menu)) #status_bar {
                         if (linkA) linkA.removeAttribute('data-tm-img');
                     }
 
-                    function showImage(bytes) {
-                        var blob = new Blob([bytes], { type: mimeType });
-                        var blobUrl = URL.createObjectURL(blob);
-
+                    function buildImg(blobUrl) {
                         var img = document.createElement('img');
                         img.className = 'tm-chat-img-preview';
                         img.src = blobUrl;
@@ -2874,8 +2864,14 @@ body:not(:has(#menu)) #status_bar {
                         ph.parentNode.replaceChild(img, ph);
                     }
 
+                    function showImage(bytes) {
+                        var blob = new Blob([bytes], { type: mimeType });
+                        var blobUrl = URL.createObjectURL(blob);
+                        tmImageCache[linkHref] = { blobUrl: blobUrl, mimeType: mimeType };
+                        buildImg(blobUrl);
+                    }
+
                     function tryFflate(buffer) {
-                        console.log('[TM] trying fflate...');
                         if (typeof fflate === 'undefined' || !fflate.unzip) {
                             console.warn('[TM] fflate not available');
                             cleanupAndReset();
@@ -2896,7 +2892,6 @@ body:not(:has(#menu)) #status_bar {
                                     cleanupAndReset();
                                     return;
                                 }
-                                console.log('[TM] fflate success, file:', names[0], 'size:', data[names[0]].length);
                                 showImage(data[names[0]]);
                             });
                         } catch (e) {
@@ -2905,14 +2900,19 @@ body:not(:has(#menu)) #status_bar {
                         }
                     }
 
-                    console.log('[TM] downloading:', url);
+                    // Проверяем кэш распакованных изображений
+                    var cached = tmImageCache[linkHref];
+                    if (cached && cached.blobUrl) {
+                        buildImg(cached.blobUrl);
+                        return;
+                    }
+
                     GM_xmlhttpRequest({
                         method: 'GET',
                         url: url,
                         responseType: 'arraybuffer',
                         headers: { 'Accept': '*/*' },
                         onload: function (response) {
-                            console.log('[TM] download status:', response.status, 'size:', response.response ? response.response.byteLength : 0);
                             try {
                                 if (!response.response || response.status !== 200) {
                                     console.warn('[TM] zip download failed, status:', response.status);
@@ -2921,14 +2921,12 @@ body:not(:has(#menu)) #status_bar {
                                 }
 
                                 // JSZip с таймаутом — если зависнет, fallback на fflate
-                                console.log('[TM] calling JSZip.loadAsync...');
                                 var zipPromise = JSZip.loadAsync(response.response);
                                 var timeoutPromise = new Promise(function(_, reject) {
                                     setTimeout(function() { reject(new Error('JSZip timeout')); }, 5000);
                                 });
 
                                 Promise.race([zipPromise, timeoutPromise]).then(function (zip) {
-                                    console.log('[TM] JSZip parsed, files:', Object.keys(zip.files).length);
                                     var names = Object.keys(zip.files).filter(function (n) {
                                         return !zip.files[n].dir;
                                     });
@@ -2937,7 +2935,6 @@ body:not(:has(#menu)) #status_bar {
                                         tryFflate(response.response);
                                         return;
                                     }
-                                    console.log('[TM] JSZip extracting:', names[0]);
 
                                     var extractPromise = zip.files[names[0]].async('uint8array');
                                     var extractTimeout = new Promise(function(_, reject) {
@@ -2945,7 +2942,6 @@ body:not(:has(#menu)) #status_bar {
                                     });
 
                                     Promise.race([extractPromise, extractTimeout]).then(function (bytes) {
-                                        console.log('[TM] JSZip extracted, bytes:', bytes.length);
                                         showImage(bytes);
                                     }).catch(function (err) {
                                         console.warn('[TM] JSZip extract error, trying fflate:', err.message || err);
@@ -2988,32 +2984,16 @@ body:not(:has(#menu)) #status_bar {
     onReady(() => {
         applyTheme(getCurrentTheme());
         disableColorTheme();
-        freeMenuFromSlimScroll();
-        fixNoMenuLayout();
-        fixBrokenAvatars(document);
-        lazyLoadGulist();
-        markMyMessages();
+                freeMenuFromSlimScroll();
+                virtualGulist();
+                markMyMessages();
         injectThemeToggle();
         injectWeatherToggle();
         applyWeather(getCurrentWeather());
         injectScrollTop();
         watchNewMessages();
         inlineChatImages();
-
-        // MutationObserver для AJAX-вставок (debounce для производительности):
-        try {
-            var _moPendingNodes = [];
-            var _moDebounceId = null;
-            function _moFlush() {
-                var nodes = _moPendingNodes;
-                _moPendingNodes = [];
-                _moDebounceId = null;
-                for (var i = 0; i < nodes.length; i++) {
-                    strikeInlineWhites(nodes[i]);
-                    fixBrokenAvatars(nodes[i]);
-                }
-                freeMenuFromSlimScroll();
-                lazyLoadGulist();
+        virtualGulist();
                 markMyMessages();
                 inlineChatImages();
             }
