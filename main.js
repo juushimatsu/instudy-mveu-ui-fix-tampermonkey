@@ -2984,16 +2984,32 @@ body:not(:has(#menu)) #status_bar {
     onReady(() => {
         applyTheme(getCurrentTheme());
         disableColorTheme();
-                freeMenuFromSlimScroll();
-                virtualGulist();
-                markMyMessages();
+        freeMenuFromSlimScroll();
+        fixNoMenuLayout();
+        fixBrokenAvatars(document);
+        virtualGulist();
+        markMyMessages();
         injectThemeToggle();
         injectWeatherToggle();
         applyWeather(getCurrentWeather());
         injectScrollTop();
         watchNewMessages();
         inlineChatImages();
-        virtualGulist();
+
+        // MutationObserver для AJAX-вставок (debounce для производительности):
+        try {
+            var _moPendingNodes = [];
+            var _moDebounceId = null;
+            function _moFlush() {
+                var nodes = _moPendingNodes;
+                _moPendingNodes = [];
+                _moDebounceId = null;
+                for (var i = 0; i < nodes.length; i++) {
+                    strikeInlineWhites(nodes[i]);
+                    fixBrokenAvatars(nodes[i]);
+                }
+                freeMenuFromSlimScroll();
+                virtualGulist();
                 markMyMessages();
                 inlineChatImages();
             }
