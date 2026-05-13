@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.9.7
+// @version      1.9.8
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -2938,10 +2938,17 @@ body:not(:has(#menu)) #status_bar {
                                         return;
                                     }
                                     console.log('[TM] JSZip extracting:', names[0]);
-                                    zip.files[names[0]].async('uint8array').then(function (bytes) {
+
+                                    var extractPromise = zip.files[names[0]].async('uint8array');
+                                    var extractTimeout = new Promise(function(_, reject) {
+                                        setTimeout(function() { reject(new Error('JSZip extract timeout')); }, 5000);
+                                    });
+
+                                    Promise.race([extractPromise, extractTimeout]).then(function (bytes) {
+                                        console.log('[TM] JSZip extracted, bytes:', bytes.length);
                                         showImage(bytes);
                                     }).catch(function (err) {
-                                        console.warn('[TM] JSZip extract error, trying fflate:', err);
+                                        console.warn('[TM] JSZip extract error, trying fflate:', err.message || err);
                                         tryFflate(response.response);
                                     });
                                 }).catch(function (err) {
