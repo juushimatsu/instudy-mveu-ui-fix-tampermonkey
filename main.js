@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.9.3
+// @version      1.9.4
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -9,6 +9,7 @@
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js
+// @require      https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.min.js
 // @connect      disto.mveu.ru
 // @noframes
 // @downloadURL  https://raw.githubusercontent.com/juushimatsu/instudy-mveu-ui-fix-tampermonkey/main/main.js
@@ -2751,7 +2752,8 @@ body:not(:has(#menu)) #status_bar {
     /* -----------------------------------------------------------
      *  Превью изображений в чате
      *  Находит ссылки на zip-архивы с изображениями в .msg_text,
-     *  скачивает их, распаковывает через JSZip и показывает <img>.
+     *  скачивает их, распаковывает через JSZip (fallback: fflate)
+     *  и показывает <img>.
      * ----------------------------------------------------------- */
     function inlineChatImages() {
         try {
@@ -2770,73 +2772,145 @@ body:not(:has(#menu)) #status_bar {
 
                 a.setAttribute('data-tm-img', '1');
 
-                // Placeholder
                 var placeholder = document.createElement('div');
                 placeholder.className = 'tm-chat-img-placeholder';
                 a.parentNode.insertBefore(placeholder, a.nextSibling);
 
                 (function (ph, linkHref, linkText) {
                     if (typeof GM_xmlhttpRequest !== 'function') return;
+
                     var url = linkHref.indexOf('//') !== -1
                         ? linkHref
                         : (location.origin + (linkHref.charAt(0) === '/' ? '' : '/') + linkHref);
+
+                    // Определяем MIME-тип по расширению текста ссылки
+                    var extMatch = linkText.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i);
+                    var mimeType = 'image/jpeg';
+                    if (extMatch) {
+                        var ext = extMatch[1].toLowerCase();
+                        var mimeMap = {
+                            jpg: 'image/jpeg', jpeg: 'image/jpeg',
+                            png: 'image/png', gif: 'image/gif',
+                            webp: 'image/webp', bmp: 'image/bmp'
+                        };
+                        mimeType = mimeMap[ext] || 'image/jpeg';
+                    }
+
+                    function showImage(bytes) {
+                        var blob = new Blob([bytes], { type: mimeType });
+                        var blobUrl = URL.createObjectURL(blob);
+
+                        var img = document.createElement('img');
+                        img.className = 'tm-chat-img-preview';
+                        img.src = blobUrl;
+                        img.alt = linkText;
+
+                        img.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            var overlay = document.createElement('div');
+                            overlay.className = 'tm-lightbox';
+                            var fullImg = document.createElement('img');
+                            fullImg.src = blobUrl;
+                            overlay.appendChild(fullImg);
+                            overlay.addEventListener('click', function () {
+                                overlay.remove();
+                            });
+                            document.body.appendChild(overlay);
+                        });
+
+                        img.addEventListener('error', function () {
+                            console.warn('[TM] image decode failed:', linkText);
+                            img.style.display = 'none';
+                        });
+
+                        ph.parentNode.replaceChild(img, ph);
+                    }
+
+                    // Fallback: fflate
+                    function tryFflate(buffer) {
+                        if (typeof fflate === 'undefined' || !fflate.unzip) {
+                            console.warn('[TM] fflate not available');
+                            ph.remove();
+                            return;
+                        }
+                        try {
+                            fflate.unzip(new Uint8Array(buffer), function (err, data) {
+                                if (err || !data) {
+                                    console.warn('[TM] fflate unzip failed:', err);
+                                    ph.remove();
+                                    return;
+                                }
+                                var names = Object.keys(data).filter(function (n) {
+                                    return !n.endsWith('/');
+                                });
+                                if (names.length === 0) {
+                                    ph.remove();
+                                    return;
+                                }
+                                showImage(data[names[0]]);
+                            });
+                        } catch (e) {
+                            console.warn('[TM] fflate error:', e);
+                            ph.remove();
+                        }
+                    }
 
                     GM_xmlhttpRequest({
                         method: 'GET',
                         url: url,
                         responseType: 'arraybuffer',
+                        headers: {
+                            'Accept': '*/*'
+                        },
                         onload: function (response) {
                             try {
-                                if (!response.response) {
+                                if (!response.response || response.status !== 200) {
+                                    console.warn('[TM] zip download failed, status:', response.status);
                                     ph.remove();
                                     return;
                                 }
+
                                 JSZip.loadAsync(response.response).then(function (zip) {
-                                    var names = Object.keys(zip.files);
+                                    // Фильтруем только файлы (не директории)
+                                    var names = Object.keys(zip.files).filter(function (n) {
+                                        return !zip.files[n].dir;
+                                    });
                                     if (names.length === 0) {
-                                        ph.remove();
+                                        console.warn('[TM] JSZip: no files, trying fflate');
+                                        tryFflate(response.response);
                                         return;
                                     }
-                                    var firstFile = zip.files[names[0]];
-                                    firstFile.async('uint8array').then(function (bytes) {
-                                        var blob = new Blob([bytes], { type: 'image/jpeg' });
-                                        var blobUrl = URL.createObjectURL(blob);
 
-                                        var img = document.createElement('img');
-                                        img.className = 'tm-chat-img-preview';
-                                        img.src = blobUrl;
-                                        img.alt = linkText;
-
-                                        // Лайтбокс по клику
-                                        img.addEventListener('click', function (e) {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            var overlay = document.createElement('div');
-                                            overlay.className = 'tm-lightbox';
-                                            var fullImg = document.createElement('img');
-                                            fullImg.src = blobUrl;
-                                            overlay.appendChild(fullImg);
-                                            overlay.addEventListener('click', function () {
-                                                overlay.remove();
-                                            });
-                                            document.body.appendChild(overlay);
-                                        });
-
-                                        // Ошибка загрузки — скрываем
-                                        img.addEventListener('error', function () {
-                                            img.style.display = 'none';
-                                        });
-
-                                        ph.parentNode.replaceChild(img, ph);
-                                    }).catch(function () { ph.remove(); });
-                                }).catch(function () { ph.remove(); });
-                            } catch (_) { ph.remove(); }
+                                    zip.files[names[0]].async('uint8array').then(function (bytes) {
+                                        showImage(bytes);
+                                    }).catch(function (err) {
+                                        console.warn('[TM] JSZip extract error, trying fflate:', err);
+                                        tryFflate(response.response);
+                                    });
+                                }).catch(function (err) {
+                                    console.warn('[TM] JSZip parse error, trying fflate:', err);
+                                    tryFflate(response.response);
+                                });
+                            } catch (e) {
+                                console.warn('[TM] zip processing error, trying fflate:', e);
+                                tryFflate(response.response);
+                            }
                         },
-                        onerror: function () { ph.remove(); }
+                        onerror: function (err) {
+                            console.warn('[TM] network error:', err);
+                            ph.remove();
+                        },
+                        ontimeout: function () {
+                            console.warn('[TM] download timeout');
+                            ph.remove();
+                        }
                     });
                 })(placeholder, href, text);
             }
-        } catch (_) { /* noop */ }
+        } catch (e) {
+            console.warn('[TM] inlineChatImages error:', e);
+        }
     }
 
     // Применяем сохранённую тему как можно раньше (до DOMContentLoaded)
