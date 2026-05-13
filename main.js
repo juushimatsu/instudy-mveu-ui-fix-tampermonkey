@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.8.6
+// @version      1.8.7
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -2103,7 +2103,7 @@ body:not(:has(#menu)) #status_bar {
  * =========================================================== */
 #chat_msg {
     overflow-y: auto !important;
-    padding: 16px !important;
+    padding: 12px 12px 60px 12px !important;
 }
 
 /* Область ввода сообщения */
@@ -2112,40 +2112,6 @@ body:not(:has(#menu)) #status_bar {
     resize: none !important;
     font-size: 14px !important;
     padding: 10px 14px !important;
-}
-
-/* contact_detail и contact_cell — справа, без перекрытия */
-#contact_detail {
-    position: relative !important;
-    z-index: 5 !important;
-}
-#contact_cell, .contact_cell {
-    position: absolute !important;
-    right: 0 !important;
-    top: 70px !important;
-    width: 260px !important;
-    max-height: calc(100vh - 200px) !important;
-    border-radius: var(--d-radius) !important;
-    box-shadow: var(--d-shadow) !important;
-    z-index: 4 !important;
-}
-
-/* Заголовок «Контакты» над contact_cell (добавляется JS-ом) */
-.tm-contacts-header {
-    position: absolute !important;
-    right: 0 !important;
-    top: 48px !important;
-    width: 260px !important;
-    color: var(--d-text-dim) !important;
-    font-family: var(--d-font-display) !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
-    letter-spacing: .08em !important;
-    text-transform: uppercase !important;
-    margin: 0 !important;
-    padding: 0 4px !important;
-    z-index: 4 !important;
-    box-sizing: border-box !important;
 }
 `;
 
@@ -2716,21 +2682,6 @@ body:not(:has(#menu)) #status_bar {
         } catch (_) { /* noop */ }
     }
 
-    /* -----------------------------------------------------------
-     *  Заголовок «Контакты» над блоком contact_cell
-     * ----------------------------------------------------------- */
-    function injectContactsHeader() {
-        try {
-            var cell = document.getElementById('contact_cell') || document.querySelector('.contact_cell');
-            if (!cell) return;
-            if (cell.previousElementSibling && cell.previousElementSibling.classList.contains('tm-contacts-header')) return;
-            var header = document.createElement('div');
-            header.className = 'tm-contacts-header';
-            header.textContent = '\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u044b';
-            cell.parentNode.insertBefore(header, cell);
-        } catch (_) { /* noop */ }
-    }
-
     // Применяем сохранённую тему как можно раньше (до DOMContentLoaded)
     (function earlyTheme() {
         const t = getCurrentTheme();
@@ -2753,7 +2704,6 @@ body:not(:has(#menu)) #status_bar {
         applyWeather(getCurrentWeather());
         injectScrollTop();
         watchNewMessages();
-        injectContactsHeader();
 
         // MutationObserver для AJAX-вставок (debounce для производительности):
         try {
@@ -2770,7 +2720,6 @@ body:not(:has(#menu)) #status_bar {
                 freeMenuFromSlimScroll();
                 lazyLoadGulist();
                 markMyMessages();
-                injectContactsHeader();
             }
             const observer = new MutationObserver((mutations) => {
                 var hasNew = false;
