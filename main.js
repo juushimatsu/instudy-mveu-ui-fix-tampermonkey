@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.9.5
+// @version      1.9.6
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -2761,8 +2761,25 @@ body:not(:has(#menu)) #status_bar {
             console.log('[TM] inlineChatImages called, chatMsg=', chatMsg);
             if (!chatMsg) return;
 
+            // Логируем структуру первых сообщений для отладки
+            var msgs = chatMsg.querySelectorAll('.msg_text');
+            console.log('[TM] found .msg_text elements:', msgs.length);
+            if (msgs.length > 0) {
+                for (var k = 0; k < Math.min(msgs.length, 3); k++) {
+                    console.log('[TM] msg[' + k + '] innerHTML:', msgs[k].innerHTML.substring(0, 500));
+                }
+            }
+
+            // Ищем ссылки шире: сначала в .msg_text, потом во всем #chat_msg
             var links = chatMsg.querySelectorAll('.msg_text a[href]');
-            console.log('[TM] found links:', links.length);
+            console.log('[TM] found links in .msg_text:', links.length);
+
+            // Если не нашли — ищем все ссылки в #chat_msg
+            if (links.length === 0) {
+                links = chatMsg.querySelectorAll('a[href*="/uploads/mveo/message/"]');
+                console.log('[TM] found links by href pattern:', links.length);
+            }
+
             if (!links.length) return;
 
             var imgExts = /\.(jpg|jpeg|png|gif|webp|bmp)$/i;
@@ -2772,7 +2789,6 @@ body:not(:has(#menu)) #status_bar {
                 if (a.getAttribute('data-tm-img') === '1') continue;
 
                 var href = (a.getAttribute('href') || '').trim();
-                // Убираем query-string и hash для проверки расширения
                 var cleanHref = href.split('?')[0].split('#')[0];
                 var text = (a.textContent || '').trim();
 
