@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.8.9
+// @version      1.9.0
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -1261,6 +1261,15 @@ a[href="/elms/debt"] {
     border: 1px solid var(--d-border-2) !important;
     border-radius: var(--d-radius-sm) !important;
 }
+#send_text {
+    height: 28px !important;
+    min-height: 28px !important;
+    max-height: 28px !important;
+    padding: 4px 8px !important;
+    font-size: 13px !important;
+    line-height: 20px !important;
+    resize: none !important;
+}
 #send_text::placeholder { color: var(--d-text-muted) !important; }
 #send_text:focus {
     outline: none;
@@ -1271,6 +1280,8 @@ a[href="/elms/debt"] {
     color: var(--d-text) !important;
     border: 1px solid var(--d-border-2) !important;
     border-radius: var(--d-radius-sm) !important;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
 }
 #send_button:hover { background: var(--d-bg-5) !important; color: var(--d-accent) !important; }
 
@@ -1328,7 +1339,8 @@ a[href="/elms/debt"] {
     color: var(--d-text-dim) !important;
     border: 1px solid var(--d-border-2) !important;
     border-radius: var(--d-radius-sm) !important;
-    padding: 8px 12px !important;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
     cursor: pointer !important;
     display: inline-flex !important;
     align-items: center !important;
