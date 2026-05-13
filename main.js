@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      2.0.2
+// @version      2.0.3
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -2566,6 +2566,7 @@ body:not(:has(#menu)) #status_bar {
         // Обновляем иконку кнопки
         const btn = document.getElementById('tm-theme-toggle');
         if (btn) btn.textContent = theme === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+        applyAccent(localStorage.getItem('tm-accent') || 'mono');
     }
 
     function injectThemeToggle() {
@@ -3071,20 +3072,88 @@ body:not(:has(#menu)) #status_bar {
      * ----------------------------------------------------------- */
     function applyAccent(name) {
         try {
+            var themeName = document.documentElement.getAttribute('data-theme') || 'dark';
+            var isLight = themeName === 'light';
+            var selector = isLight ? ':root[data-theme="light"]' : ':root';
+
             var accentMap = {
-                mono:    { accent: '#f4f4f7', soft: '#c8c8d0', dim: '#80808a', glow: 'rgba(244,244,247,0.08)' },
-                ocean:   { accent: '#4a9eff', soft: '#7ab8ff', dim: '#2a6abf', glow: 'rgba(74,158,255,0.10)' },
-                crimson: { accent: '#c25f5f', soft: '#d98080', dim: '#8a3a3a', glow: 'rgba(194,95,95,0.10)' },
-                amber:   { accent: '#c8903a', soft: '#dba85a', dim: '#8a6020', glow: 'rgba(200,144,58,0.10)' },
-                forest:  { accent: '#5a9e6f', soft: '#7aba8f', dim: '#3a7050', glow: 'rgba(90,158,111,0.10)' }
+                mono: {
+                    dark:  { accent: '#f4f4f7', soft: '#c8c8d0', dim: '#80808a', glow: 'rgba(244,244,247,0.08)' },
+                    light: { accent: '#0a0a0c', soft: '#2a2a32', dim: '#8a8a94', glow: 'rgba(0,0,0,0.06)' }
+                },
+                ocean: {
+                    dark: {
+                        accent: '#4a9eff', soft: '#7ab8ff', dim: '#2a6abf', glow: 'rgba(74,158,255,0.10)',
+                        bg0: '#0a0f14', bg1: '#0d131a', bg2: '#111822', bg3: '#151d2a', bg4: '#1a2230', bg5: '#1e2838',
+                        border: '#1a2230', border2: '#202a3a', borderSoft: '#131b28'
+                    },
+                    light: {
+                        accent: '#4a9eff', soft: '#7ab8ff', dim: '#2a6abf', glow: 'rgba(74,158,255,0.10)',
+                        bg0: '#f0f4f8', bg1: '#e8eef5', bg2: '#e0e8f2', bg3: '#d8e2ee', bg4: '#d0dcea', bg5: '#c8d6e6',
+                        border: '#c8d6e6', border2: '#c0d0e2', borderSoft: '#d0dcea'
+                    }
+                },
+                crimson: {
+                    dark: {
+                        accent: '#c25f5f', soft: '#d98080', dim: '#8a3a3a', glow: 'rgba(194,95,95,0.10)',
+                        bg0: '#140a0a', bg1: '#1a0d0d', bg2: '#201111', bg3: '#261515', bg4: '#2a1a1a', bg5: '#301e1e',
+                        border: '#2a1a1a', border2: '#362020', borderSoft: '#1f1313'
+                    },
+                    light: {
+                        accent: '#c25f5f', soft: '#d98080', dim: '#8a3a3a', glow: 'rgba(194,95,95,0.10)',
+                        bg0: '#f8f0f0', bg1: '#f5e8e8', bg2: '#f2e0e0', bg3: '#eed8d8', bg4: '#ead0d0', bg5: '#e6c8c8',
+                        border: '#e6c8c8', border2: '#e2c0c0', borderSoft: '#ead0d0'
+                    }
+                },
+                amber: {
+                    dark: {
+                        accent: '#c8903a', soft: '#dba85a', dim: '#8a6020', glow: 'rgba(200,144,58,0.10)',
+                        bg0: '#14100a', bg1: '#1a130d', bg2: '#201811', bg3: '#261d15', bg4: '#2a2218', bg5: '#30261e',
+                        border: '#2a2218', border2: '#362c22', borderSoft: '#1f1813'
+                    },
+                    light: {
+                        accent: '#c8903a', soft: '#dba85a', dim: '#8a6020', glow: 'rgba(200,144,58,0.10)',
+                        bg0: '#f8f4f0', bg1: '#f5eee8', bg2: '#f2e8e0', bg3: '#eee2d8', bg4: '#eadcd0', bg5: '#e6d6c8',
+                        border: '#e6d6c8', border2: '#e2d0c0', borderSoft: '#eadcd0'
+                    }
+                },
+                forest: {
+                    dark: {
+                        accent: '#5a9e6f', soft: '#7aba8f', dim: '#3a7050', glow: 'rgba(90,158,111,0.10)',
+                        bg0: '#0a140a', bg1: '#0d1a0d', bg2: '#112011', bg3: '#152615', bg4: '#1a2a1a', bg5: '#1e301e',
+                        border: '#1a2a1a', border2: '#223622', borderSoft: '#131f13'
+                    },
+                    light: {
+                        accent: '#5a9e6f', soft: '#7aba8f', dim: '#3a7050', glow: 'rgba(90,158,111,0.10)',
+                        bg0: '#f0f8f0', bg1: '#e8f5e8', bg2: '#e0f2e0', bg3: '#d8eed8', bg4: '#d0ead0', bg5: '#c8e6c8',
+                        border: '#c8e6c8', border2: '#c0e2c0', borderSoft: '#d0ead0'
+                    }
+                }
             };
+
             var theme = accentMap[name] || accentMap.mono;
-            var css = ':root {'
-                + ' --d-accent: ' + theme.accent + ';'
-                + ' --d-accent-soft: ' + theme.soft + ';'
-                + ' --d-accent-dim: ' + theme.dim + ';'
-                + ' --d-accent-glow: ' + theme.glow + ';'
-                + ' }';
+            var vars = theme[themeName] || theme.dark;
+
+            var css = selector + ' {'
+                + ' --d-accent: ' + vars.accent + ';'
+                + ' --d-accent-soft: ' + vars.soft + ';'
+                + ' --d-accent-dim: ' + vars.dim + ';'
+                + ' --d-accent-glow: ' + vars.glow + ';';
+
+            if (name !== 'mono') {
+                css += ' --d-bg-0: ' + vars.bg0 + ';'
+                    + ' --d-bg-1: ' + vars.bg1 + ';'
+                    + ' --d-bg-2: ' + vars.bg2 + ';'
+                    + ' --d-bg-3: ' + vars.bg3 + ';'
+                    + ' --d-bg-4: ' + vars.bg4 + ';'
+                    + ' --d-bg-5: ' + vars.bg5 + ';'
+                    + ' --d-border: ' + vars.border + ';'
+                    + ' --d-border-2: ' + vars.border2 + ';'
+                    + ' --d-border-soft: ' + vars.borderSoft + ';';
+            }
+
+            css += ' }';
+
             var style = document.getElementById('tm-accent');
             if (!style) {
                 style = document.createElement('style');
