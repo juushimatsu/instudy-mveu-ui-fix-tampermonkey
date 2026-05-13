@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.8.3
+// @version      1.8.5
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -2047,6 +2047,151 @@ body:not(:has(#menu)) #status_bar {
     z-index: 9999 !important;
     pointer-events: none !important;
 }
+
+/* ===========================================================
+ *  Плавный переход при смене темы
+ * =========================================================== */
+:root.tm-transitioning,
+:root.tm-transitioning *,
+:root.tm-transitioning *::before,
+:root.tm-transitioning *::after {
+    transition: background .35s ease, background-color .35s ease,
+                color .35s ease, border-color .35s ease,
+                box-shadow .35s ease !important;
+}
+
+/* ===========================================================
+ *  Кнопка «Наверх»
+ * =========================================================== */
+#tm-scroll-top {
+    position: fixed !important;
+    bottom: 28px !important;
+    right: 28px !important;
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    background: var(--d-bg-3) !important;
+    border: 1px solid var(--d-border-2) !important;
+    color: var(--d-text-dim) !important;
+    font-size: 18px !important;
+    line-height: 1 !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    display: none;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 8000 !important;
+    box-shadow: var(--d-shadow) !important;
+    transition: opacity .2s ease, background .15s ease, color .15s ease !important;
+    opacity: 0;
+    font-family: system-ui, sans-serif !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+}
+#tm-scroll-top.tm-visible {
+    display: flex;
+    opacity: 1;
+}
+#tm-scroll-top:hover {
+    background: var(--d-bg-4) !important;
+    color: var(--d-accent) !important;
+    border-color: var(--d-accent-dim) !important;
+}
+
+/* ===========================================================
+ *  Чат — улучшенный лейаут
+ * =========================================================== */
+#chat_window {
+    min-height: 70vh !important;
+    height: 80vh !important;
+    max-height: calc(100vh - 120px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+#chat_msg {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    min-height: 200px !important;
+    padding: 16px !important;
+}
+
+/* Область ввода сообщения */
+#send_text {
+    min-height: 42px !important;
+    resize: none !important;
+    font-size: 14px !important;
+    padding: 10px 14px !important;
+}
+
+/* Кнопка отправки файла — компактная иконка рядом с полем */
+.btnFile {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    vertical-align: middle !important;
+}
+.btnFile .chous {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    background: var(--d-bg-3) !important;
+    border: 1px solid var(--d-border-2) !important;
+    color: var(--d-text-dim) !important;
+    font-size: 16px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: background var(--d-transition), color var(--d-transition) !important;
+}
+.btnFile .chous:hover {
+    background: var(--d-bg-4) !important;
+    color: var(--d-accent) !important;
+}
+
+/* Кнопка отправки сообщения */
+#send_button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    font-size: 16px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* contact_detail и contact_cell — не перекрываются */
+#contact_detail {
+    position: relative !important;
+    z-index: 5 !important;
+}
+#contact_cell, .contact_cell {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: 10px !important;
+    max-height: 300px !important;
+    border-radius: var(--d-radius) !important;
+    box-shadow: var(--d-shadow) !important;
+}
+
+/* Заголовок «Контакты» над contact_cell (добавляется JS-ом) */
+.tm-contacts-header {
+    color: var(--d-text-dim) !important;
+    font-family: var(--d-font-display) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: .08em !important;
+    text-transform: uppercase !important;
+    margin: 12px 0 6px 0 !important;
+    padding: 0 4px !important;
+}
 `;
 
     /* ----------------------------------------------------------- */
@@ -2300,6 +2445,13 @@ body:not(:has(#menu)) #status_bar {
     }
 
     function applyTheme(theme) {
+        // Плавный переход при смене темы
+        try {
+            var root = document.documentElement;
+            root.classList.add('tm-transitioning');
+            setTimeout(function () { root.classList.remove('tm-transitioning'); }, 400);
+        } catch (_) { /* noop */ }
+
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('tm-theme', theme);
         setupMeta();
@@ -2521,6 +2673,109 @@ body:not(:has(#menu)) #status_bar {
         } catch (_) { /* noop */ }
     }
 
+    /* -----------------------------------------------------------
+     *  Кнопка «Наверх» — появляется при скролле вниз
+     * ----------------------------------------------------------- */
+    function injectScrollTop() {
+        try {
+            var btn = document.createElement('button');
+            btn.id = 'tm-scroll-top';
+            btn.type = 'button';
+            btn.title = 'Наверх';
+            btn.textContent = '\u2191';
+            btn.addEventListener('click', function () {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            document.body.appendChild(btn);
+
+            var visible = false;
+            window.addEventListener('scroll', function () {
+                var show = window.scrollY > 300;
+                if (show !== visible) {
+                    visible = show;
+                    if (show) {
+                        btn.classList.add('tm-visible');
+                    } else {
+                        btn.classList.remove('tm-visible');
+                    }
+                }
+            }, { passive: true });
+        } catch (_) { /* noop */ }
+    }
+
+    /* -----------------------------------------------------------
+     *  Уведомление о новых сообщениях при неактивной вкладке
+     * ----------------------------------------------------------- */
+    function watchNewMessages() {
+        try {
+            var originalTitle = document.title;
+            var isActive = true;
+            var blinkInterval = null;
+
+            document.addEventListener('visibilitychange', function () {
+                isActive = !document.hidden;
+                if (isActive) {
+                    // Вкладка активна — сбрасываем мигание
+                    document.title = originalTitle;
+                    if (blinkInterval) {
+                        clearInterval(blinkInterval);
+                        blinkInterval = null;
+                    }
+                }
+            });
+
+            // Следим за добавлением новых сообщений в #chat_msg
+            var chatObs = new MutationObserver(function (mutations) {
+                if (isActive) return;
+                var hasNewMsg = false;
+                mutations.forEach(function (m) {
+                    m.addedNodes.forEach(function (n) {
+                        if (n.nodeType === 1 && (n.classList.contains('msg_text') || n.querySelector && n.querySelector('.msg_text'))) {
+                            hasNewMsg = true;
+                        }
+                    });
+                });
+                if (hasNewMsg && !blinkInterval) {
+                    var toggle = false;
+                    blinkInterval = setInterval(function () {
+                        toggle = !toggle;
+                        document.title = toggle ? '\u{1F4E9} \u041d\u043e\u0432\u043e\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435' : originalTitle;
+                    }, 1200);
+                }
+            });
+
+            var chatMsg = document.getElementById('chat_msg');
+            if (chatMsg) {
+                chatObs.observe(chatMsg, { childList: true, subtree: true });
+            } else {
+                // Если чат ещё не подгружен — следим за появлением #chat_msg
+                var bodyObs = new MutationObserver(function () {
+                    var cm = document.getElementById('chat_msg');
+                    if (cm) {
+                        chatObs.observe(cm, { childList: true, subtree: true });
+                        bodyObs.disconnect();
+                    }
+                });
+                bodyObs.observe(document.body, { childList: true, subtree: true });
+            }
+        } catch (_) { /* noop */ }
+    }
+
+    /* -----------------------------------------------------------
+     *  Заголовок «Контакты» над блоком contact_cell
+     * ----------------------------------------------------------- */
+    function injectContactsHeader() {
+        try {
+            var cell = document.getElementById('contact_cell') || document.querySelector('.contact_cell');
+            if (!cell) return;
+            if (cell.previousElementSibling && cell.previousElementSibling.classList.contains('tm-contacts-header')) return;
+            var header = document.createElement('div');
+            header.className = 'tm-contacts-header';
+            header.textContent = '\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u044b';
+            cell.parentNode.insertBefore(header, cell);
+        } catch (_) { /* noop */ }
+    }
+
     // Применяем сохранённую тему как можно раньше (до DOMContentLoaded)
     (function earlyTheme() {
         const t = getCurrentTheme();
@@ -2541,6 +2796,9 @@ body:not(:has(#menu)) #status_bar {
         injectThemeToggle();
         injectWeatherToggle();
         applyWeather(getCurrentWeather());
+        injectScrollTop();
+        watchNewMessages();
+        injectContactsHeader();
 
         // MutationObserver для AJAX-вставок (debounce для производительности):
         try {
@@ -2557,6 +2815,7 @@ body:not(:has(#menu)) #status_bar {
                 freeMenuFromSlimScroll();
                 lazyLoadGulist();
                 markMyMessages();
+                injectContactsHeader();
             }
             const observer = new MutationObserver((mutations) => {
                 var hasNew = false;
