@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.9.4
+// @version      1.9.5
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -2758,18 +2758,40 @@ body:not(:has(#menu)) #status_bar {
     function inlineChatImages() {
         try {
             var chatMsg = document.getElementById('chat_msg');
+            console.log('[TM] inlineChatImages called, chatMsg=', chatMsg);
             if (!chatMsg) return;
+
             var links = chatMsg.querySelectorAll('.msg_text a[href]');
+            console.log('[TM] found links:', links.length);
+            if (!links.length) return;
+
             var imgExts = /\.(jpg|jpeg|png|gif|webp|bmp)$/i;
 
             for (var i = 0; i < links.length; i++) {
                 var a = links[i];
                 if (a.getAttribute('data-tm-img') === '1') continue;
-                var href = a.getAttribute('href') || '';
-                if (href.indexOf('/uploads/mveo/message/') === -1 || !href.endsWith('.zip')) continue;
-                var text = (a.textContent || '').trim();
-                if (!imgExts.test(text)) continue;
 
+                var href = (a.getAttribute('href') || '').trim();
+                // Убираем query-string и hash для проверки расширения
+                var cleanHref = href.split('?')[0].split('#')[0];
+                var text = (a.textContent || '').trim();
+
+                console.log('[TM] checking link:', href, 'text:', text);
+
+                if (!cleanHref.includes('/uploads/mveo/message/')) {
+                    console.log('[TM] skipped: no /uploads/mveo/message/');
+                    continue;
+                }
+                if (!cleanHref.toLowerCase().endsWith('.zip')) {
+                    console.log('[TM] skipped: not .zip');
+                    continue;
+                }
+                if (!imgExts.test(text)) {
+                    console.log('[TM] skipped: text not image');
+                    continue;
+                }
+
+                console.log('[TM] processing:', text);
                 a.setAttribute('data-tm-img', '1');
 
                 var placeholder = document.createElement('div');
@@ -2777,13 +2799,17 @@ body:not(:has(#menu)) #status_bar {
                 a.parentNode.insertBefore(placeholder, a.nextSibling);
 
                 (function (ph, linkHref, linkText) {
-                    if (typeof GM_xmlhttpRequest !== 'function') return;
+                    if (typeof GM_xmlhttpRequest !== 'function') {
+                        console.warn('[TM] GM_xmlhttpRequest unavailable');
+                        ph.remove();
+                        return;
+                    }
 
                     var url = linkHref.indexOf('//') !== -1
                         ? linkHref
                         : (location.origin + (linkHref.charAt(0) === '/' ? '' : '/') + linkHref);
 
-                    // Определяем MIME-тип по расширению текста ссылки
+                    // MIME по расширению текста ссылки
                     var extMatch = linkText.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i);
                     var mimeType = 'image/jpeg';
                     if (extMatch) {
@@ -2827,7 +2853,6 @@ body:not(:has(#menu)) #status_bar {
                         ph.parentNode.replaceChild(img, ph);
                     }
 
-                    // Fallback: fflate
                     function tryFflate(buffer) {
                         if (typeof fflate === 'undefined' || !fflate.unzip) {
                             console.warn('[TM] fflate not available');
@@ -2856,14 +2881,14 @@ body:not(:has(#menu)) #status_bar {
                         }
                     }
 
+                    console.log('[TM] downloading:', url);
                     GM_xmlhttpRequest({
                         method: 'GET',
                         url: url,
                         responseType: 'arraybuffer',
-                        headers: {
-                            'Accept': '*/*'
-                        },
+                        headers: { 'Accept': '*/*' },
                         onload: function (response) {
+                            console.log('[TM] download status:', response.status, 'size:', response.response ? response.response.byteLength : 0);
                             try {
                                 if (!response.response || response.status !== 200) {
                                     console.warn('[TM] zip download failed, status:', response.status);
@@ -2872,7 +2897,6 @@ body:not(:has(#menu)) #status_bar {
                                 }
 
                                 JSZip.loadAsync(response.response).then(function (zip) {
-                                    // Фильтруем только файлы (не директории)
                                     var names = Object.keys(zip.files).filter(function (n) {
                                         return !zip.files[n].dir;
                                     });
