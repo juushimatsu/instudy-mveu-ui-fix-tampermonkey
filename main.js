@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.8.2
+// @version      1.8.3
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -2028,6 +2028,15 @@ body:not(:has(#menu)) #status_bar {
     color: var(--d-text) !important;
 }
 
+/* Скрытие элементов для ленивой загрузки списков */
+.tm-hidden { display: none !important; }
+
+/* Оптимизация рендеринга длинных списков пользователей */
+.gulist {
+    content-visibility: auto !important;
+    contain-intrinsic-size: 0 320px !important;
+}
+
 /* Canvas атмосферных частиц */
 #tm-weather-canvas {
     position: fixed !important;
@@ -2213,28 +2222,30 @@ body:not(:has(#menu)) #status_bar {
     function lazyLoadGulist() {
         // Список преподавателей (.gulist) может содержать тысячи элементов.
         // Показываем первую порцию, остальные подгружаем по скроллу.
+        // Используем CSS-класс .tm-hidden вместо inline style для производительности.
         try {
-            const BATCH = 60;
+            const BATCH = 80;
             document.querySelectorAll('.gulist').forEach((list) => {
                 if (list.dataset.tmLazy) return;
                 list.dataset.tmLazy = '1';
-                const children = Array.from(list.children);
-                if (children.length <= BATCH) return;
+                const children = list.children;
+                var total = children.length;
+                if (total <= BATCH) return;
 
-                for (let i = BATCH; i < children.length; i++) {
-                    children[i].style.display = 'none';
+                for (let i = BATCH; i < total; i++) {
+                    children[i].classList.add('tm-hidden');
                 }
                 let shown = BATCH;
 
                 list.addEventListener('scroll', function onScroll() {
-                    if (shown >= children.length) {
+                    if (shown >= total) {
                         list.removeEventListener('scroll', onScroll);
                         return;
                     }
-                    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 80) {
-                        const end = Math.min(shown + BATCH, children.length);
+                    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 100) {
+                        const end = Math.min(shown + BATCH, total);
                         for (let i = shown; i < end; i++) {
-                            children[i].style.display = '';
+                            children[i].classList.remove('tm-hidden');
                         }
                         shown = end;
                     }
@@ -2531,23 +2542,34 @@ body:not(:has(#menu)) #status_bar {
         injectWeatherToggle();
         applyWeather(getCurrentWeather());
 
-        // MutationObserver для AJAX-вставок:
+        // MutationObserver для AJAX-вставок (debounce для производительности):
         try {
+            var _moPendingNodes = [];
+            var _moDebounceId = null;
+            function _moFlush() {
+                var nodes = _moPendingNodes;
+                _moPendingNodes = [];
+                _moDebounceId = null;
+                for (var i = 0; i < nodes.length; i++) {
+                    strikeInlineWhites(nodes[i]);
+                    fixBrokenAvatars(nodes[i]);
+                }
+                freeMenuFromSlimScroll();
+                lazyLoadGulist();
+                markMyMessages();
+            }
             const observer = new MutationObserver((mutations) => {
-                let touched = false;
+                var hasNew = false;
                 mutations.forEach((m) => {
                     m.addedNodes.forEach((n) => {
                         if (n.nodeType === 1) {
-                            strikeInlineWhites(n);
-                            fixBrokenAvatars(n);
-                            touched = true;
+                            _moPendingNodes.push(n);
+                            hasNew = true;
                         }
                     });
                 });
-                if (touched) {
-                    freeMenuFromSlimScroll();
-                    lazyLoadGulist();
-                    markMyMessages();
+                if (hasNew && !_moDebounceId) {
+                    _moDebounceId = requestAnimationFrame(_moFlush);
                 }
             });
             observer.observe(document.body, { childList: true, subtree: true });
