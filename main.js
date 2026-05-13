@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.9.6
+// @version      1.9.7
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -2814,7 +2814,7 @@ body:not(:has(#menu)) #status_bar {
                 placeholder.className = 'tm-chat-img-placeholder';
                 a.parentNode.insertBefore(placeholder, a.nextSibling);
 
-                (function (ph, linkHref, linkText) {
+                (function (ph, linkA, linkHref, linkText) {
                     if (typeof GM_xmlhttpRequest !== 'function') {
                         console.warn('[TM] GM_xmlhttpRequest unavailable');
                         ph.remove();
@@ -2836,6 +2836,11 @@ body:not(:has(#menu)) #status_bar {
                             webp: 'image/webp', bmp: 'image/bmp'
                         };
                         mimeType = mimeMap[ext] || 'image/jpeg';
+                    }
+
+                    function cleanupAndReset() {
+                        ph.remove();
+                        if (linkA) linkA.removeAttribute('data-tm-img');
                     }
 
                     function showImage(bytes) {
@@ -2870,30 +2875,33 @@ body:not(:has(#menu)) #status_bar {
                     }
 
                     function tryFflate(buffer) {
+                        console.log('[TM] trying fflate...');
                         if (typeof fflate === 'undefined' || !fflate.unzip) {
                             console.warn('[TM] fflate not available');
-                            ph.remove();
+                            cleanupAndReset();
                             return;
                         }
                         try {
                             fflate.unzip(new Uint8Array(buffer), function (err, data) {
                                 if (err || !data) {
                                     console.warn('[TM] fflate unzip failed:', err);
-                                    ph.remove();
+                                    cleanupAndReset();
                                     return;
                                 }
                                 var names = Object.keys(data).filter(function (n) {
                                     return !n.endsWith('/');
                                 });
                                 if (names.length === 0) {
-                                    ph.remove();
+                                    console.warn('[TM] fflate: no files');
+                                    cleanupAndReset();
                                     return;
                                 }
+                                console.log('[TM] fflate success, file:', names[0], 'size:', data[names[0]].length);
                                 showImage(data[names[0]]);
                             });
                         } catch (e) {
                             console.warn('[TM] fflate error:', e);
-                            ph.remove();
+                            cleanupAndReset();
                         }
                     }
 
@@ -2908,11 +2916,19 @@ body:not(:has(#menu)) #status_bar {
                             try {
                                 if (!response.response || response.status !== 200) {
                                     console.warn('[TM] zip download failed, status:', response.status);
-                                    ph.remove();
+                                    cleanupAndReset();
                                     return;
                                 }
 
-                                JSZip.loadAsync(response.response).then(function (zip) {
+                                // JSZip с таймаутом — если зависнет, fallback на fflate
+                                console.log('[TM] calling JSZip.loadAsync...');
+                                var zipPromise = JSZip.loadAsync(response.response);
+                                var timeoutPromise = new Promise(function(_, reject) {
+                                    setTimeout(function() { reject(new Error('JSZip timeout')); }, 5000);
+                                });
+
+                                Promise.race([zipPromise, timeoutPromise]).then(function (zip) {
+                                    console.log('[TM] JSZip parsed, files:', Object.keys(zip.files).length);
                                     var names = Object.keys(zip.files).filter(function (n) {
                                         return !zip.files[n].dir;
                                     });
@@ -2921,7 +2937,7 @@ body:not(:has(#menu)) #status_bar {
                                         tryFflate(response.response);
                                         return;
                                     }
-
+                                    console.log('[TM] JSZip extracting:', names[0]);
                                     zip.files[names[0]].async('uint8array').then(function (bytes) {
                                         showImage(bytes);
                                     }).catch(function (err) {
@@ -2929,7 +2945,7 @@ body:not(:has(#menu)) #status_bar {
                                         tryFflate(response.response);
                                     });
                                 }).catch(function (err) {
-                                    console.warn('[TM] JSZip parse error, trying fflate:', err);
+                                    console.warn('[TM] JSZip failed:', err.message || err);
                                     tryFflate(response.response);
                                 });
                             } catch (e) {
@@ -2939,14 +2955,14 @@ body:not(:has(#menu)) #status_bar {
                         },
                         onerror: function (err) {
                             console.warn('[TM] network error:', err);
-                            ph.remove();
+                            cleanupAndReset();
                         },
                         ontimeout: function () {
                             console.warn('[TM] download timeout');
-                            ph.remove();
+                            cleanupAndReset();
                         }
                     });
-                })(placeholder, href, text);
+                })(placeholder, a, href, text);
             }
         } catch (e) {
             console.warn('[TM] inlineChatImages error:', e);
