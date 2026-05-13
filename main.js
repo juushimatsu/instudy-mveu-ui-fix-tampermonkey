@@ -2101,17 +2101,8 @@ body:not(:has(#menu)) #status_bar {
 /* ===========================================================
  *  Чат — улучшенный лейаут
  * =========================================================== */
-#chat_window {
-    min-height: 70vh !important;
-    height: 80vh !important;
-    max-height: calc(100vh - 120px) !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
 #chat_msg {
-    flex: 1 1 auto !important;
     overflow-y: auto !important;
-    min-height: 200px !important;
     padding: 16px !important;
 }
 
@@ -2123,74 +2114,38 @@ body:not(:has(#menu)) #status_bar {
     padding: 10px 14px !important;
 }
 
-/* Кнопка отправки файла — компактная иконка рядом с полем */
-.btnFile {
-    position: relative !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    vertical-align: middle !important;
-}
-.btnFile .chous {
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
-    padding: 0 !important;
-    border-radius: 50% !important;
-    background: var(--d-bg-3) !important;
-    border: 1px solid var(--d-border-2) !important;
-    color: var(--d-text-dim) !important;
-    font-size: 16px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    cursor: pointer !important;
-    transition: background var(--d-transition), color var(--d-transition) !important;
-}
-.btnFile .chous:hover {
-    background: var(--d-bg-4) !important;
-    color: var(--d-accent) !important;
-}
-
-/* Кнопка отправки сообщения */
-#send_button {
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
-    padding: 0 !important;
-    border-radius: 50% !important;
-    font-size: 16px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
-
-/* contact_detail и contact_cell — не перекрываются */
+/* contact_detail и contact_cell — справа, без перекрытия */
 #contact_detail {
     position: relative !important;
     z-index: 5 !important;
 }
 #contact_cell, .contact_cell {
-    position: relative !important;
-    top: auto !important;
-    right: auto !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-top: 10px !important;
-    max-height: 300px !important;
+    position: absolute !important;
+    right: 0 !important;
+    top: 70px !important;
+    width: 260px !important;
+    max-height: calc(100vh - 200px) !important;
     border-radius: var(--d-radius) !important;
     box-shadow: var(--d-shadow) !important;
+    z-index: 4 !important;
 }
 
 /* Заголовок «Контакты» над contact_cell (добавляется JS-ом) */
 .tm-contacts-header {
+    position: absolute !important;
+    right: 0 !important;
+    top: 48px !important;
+    width: 260px !important;
     color: var(--d-text-dim) !important;
     font-family: var(--d-font-display) !important;
     font-size: 11px !important;
     font-weight: 600 !important;
     letter-spacing: .08em !important;
     text-transform: uppercase !important;
-    margin: 12px 0 6px 0 !important;
+    margin: 0 !important;
     padding: 0 4px !important;
+    z-index: 4 !important;
+    box-sizing: border-box !important;
 }
 `;
 
