@@ -1,12 +1,15 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.9.2
+// @version      1.9.3
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
 // @run-at       document-start
 // @grant        GM_addStyle
+// @grant        GM_xmlhttpRequest
+// @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js
+// @connect      disto.mveu.ru
 // @noframes
 // @downloadURL  https://raw.githubusercontent.com/juushimatsu/instudy-mveu-ui-fix-tampermonkey/main/main.js
 // @updateURL    https://raw.githubusercontent.com/juushimatsu/instudy-mveu-ui-fix-tampermonkey/main/main.js
@@ -2126,6 +2129,20 @@ body:not(:has(#menu)) #status_bar {
 /* ===========================================================
  *  Превью изображений в сообщениях чата
  * =========================================================== */
+.tm-chat-img-placeholder {
+    display: block !important;
+    width: 120px !important;
+    height: 80px !important;
+    border-radius: 8px !important;
+    margin-top: 6px !important;
+    background: var(--d-bg-3) !important;
+    /* пульсирующая анимация загрузки */
+    animation: tm-pulse 1.4s ease-in-out infinite !important;
+}
+@keyframes tm-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .4; }
+}
 .tm-chat-img-preview {
     display: block !important;
     max-width: 320px !important;
@@ -2733,47 +2750,91 @@ body:not(:has(#menu)) #status_bar {
 
     /* -----------------------------------------------------------
      *  Превью изображений в чате
-     *  Находит ссылки на изображения в .msg_text и добавляет <img>
+     *  Находит ссылки на zip-архивы с изображениями в .msg_text,
+     *  скачивает их, распаковывает через JSZip и показывает <img>.
      * ----------------------------------------------------------- */
     function inlineChatImages() {
         try {
-            var imgExts = /\.(jpe?g|png|gif|webp|bmp|svg)(\?.*)?$/i;
             var chatMsg = document.getElementById('chat_msg');
             if (!chatMsg) return;
             var links = chatMsg.querySelectorAll('.msg_text a[href]');
+            var imgExts = /\.(jpg|jpeg|png|gif|webp|bmp)$/i;
+
             for (var i = 0; i < links.length; i++) {
                 var a = links[i];
-                if (a.getAttribute('data-tm-img')) continue;
+                if (a.getAttribute('data-tm-img') === '1') continue;
                 var href = a.getAttribute('href') || '';
-                if (!imgExts.test(href)) continue;
+                if (href.indexOf('/uploads/mveo/message/') === -1 || !href.endsWith('.zip')) continue;
+                var text = (a.textContent || '').trim();
+                if (!imgExts.test(text)) continue;
+
                 a.setAttribute('data-tm-img', '1');
 
-                var img = document.createElement('img');
-                img.className = 'tm-chat-img-preview';
-                img.loading = 'lazy';
-                // Корректный URL (абсолютный или относительный)
-                img.src = href.indexOf('//') !== -1 ? href : (location.origin + (href.charAt(0) === '/' ? '' : '/') + href);
-                img.alt = a.textContent || 'изображение';
+                // Placeholder
+                var placeholder = document.createElement('div');
+                placeholder.className = 'tm-chat-img-placeholder';
+                a.parentNode.insertBefore(placeholder, a.nextSibling);
 
-                // Клик по превью — лайтбокс
-                (function (src) {
-                    img.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        var overlay = document.createElement('div');
-                        overlay.className = 'tm-lightbox';
-                        var fullImg = document.createElement('img');
-                        fullImg.src = src;
-                        overlay.appendChild(fullImg);
-                        overlay.addEventListener('click', function () {
-                            overlay.remove();
-                        });
-                        document.body.appendChild(overlay);
+                (function (ph, linkHref, linkText) {
+                    if (typeof GM_xmlhttpRequest !== 'function') return;
+                    var url = linkHref.indexOf('//') !== -1
+                        ? linkHref
+                        : (location.origin + (linkHref.charAt(0) === '/' ? '' : '/') + linkHref);
+
+                    GM_xmlhttpRequest({
+                        method: 'GET',
+                        url: url,
+                        responseType: 'arraybuffer',
+                        onload: function (response) {
+                            try {
+                                if (!response.response) {
+                                    ph.remove();
+                                    return;
+                                }
+                                JSZip.loadAsync(response.response).then(function (zip) {
+                                    var names = Object.keys(zip.files);
+                                    if (names.length === 0) {
+                                        ph.remove();
+                                        return;
+                                    }
+                                    var firstFile = zip.files[names[0]];
+                                    firstFile.async('uint8array').then(function (bytes) {
+                                        var blob = new Blob([bytes], { type: 'image/jpeg' });
+                                        var blobUrl = URL.createObjectURL(blob);
+
+                                        var img = document.createElement('img');
+                                        img.className = 'tm-chat-img-preview';
+                                        img.src = blobUrl;
+                                        img.alt = linkText;
+
+                                        // Лайтбокс по клику
+                                        img.addEventListener('click', function (e) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            var overlay = document.createElement('div');
+                                            overlay.className = 'tm-lightbox';
+                                            var fullImg = document.createElement('img');
+                                            fullImg.src = blobUrl;
+                                            overlay.appendChild(fullImg);
+                                            overlay.addEventListener('click', function () {
+                                                overlay.remove();
+                                            });
+                                            document.body.appendChild(overlay);
+                                        });
+
+                                        // Ошибка загрузки — скрываем
+                                        img.addEventListener('error', function () {
+                                            img.style.display = 'none';
+                                        });
+
+                                        ph.parentNode.replaceChild(img, ph);
+                                    }).catch(function () { ph.remove(); });
+                                }).catch(function () { ph.remove(); });
+                            } catch (_) { ph.remove(); }
+                        },
+                        onerror: function () { ph.remove(); }
                     });
-                })(img.src);
-
-                // Вставляем превью после ссылки
-                a.parentNode.insertBefore(img, a.nextSibling);
+                })(placeholder, href, text);
             }
         } catch (_) { /* noop */ }
     }
