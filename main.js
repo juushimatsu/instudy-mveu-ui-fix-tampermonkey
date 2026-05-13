@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         InStudy / disto.mveu.ru — Mono UI
 // @namespace    https://disto.mveu.ru/
-// @version      1.9.1
+// @version      1.9.2
 // @description  Красивая монохромная тёмная тема для портала disto.mveu.ru (InStudy). v1.4.0: пустой #contact_detail больше не накрывает «Поиск по фамилии»; футер с контактами больше не уходит под список преподавателей (#search → position:relative); кнопки семестров/«Практики»/«Академические долги» в монохроме; бейдж DARK не выезжает за правую границу.
 // @author       boostcsgonik
 // @match        *://disto.mveu.ru/*
@@ -2122,6 +2122,46 @@ body:not(:has(#menu)) #status_bar {
 #chat_msg {
     padding-bottom: 70px !important;
 }
+
+/* ===========================================================
+ *  Превью изображений в сообщениях чата
+ * =========================================================== */
+.tm-chat-img-preview {
+    display: block !important;
+    max-width: 320px !important;
+    max-height: 280px !important;
+    border-radius: 8px !important;
+    margin-top: 6px !important;
+    cursor: pointer !important;
+    object-fit: contain !important;
+    background: var(--d-bg-2) !important;
+    border: 1px solid var(--d-border-soft) !important;
+    transition: opacity .2s ease !important;
+}
+.tm-chat-img-preview:hover {
+    opacity: .85 !important;
+}
+/* Полноэкранный просмотр по клику */
+.tm-lightbox {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0,0,0,.85) !important;
+    z-index: 10000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: zoom-out !important;
+}
+.tm-lightbox img {
+    max-width: 90vw !important;
+    max-height: 90vh !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 32px rgba(0,0,0,.6) !important;
+    object-fit: contain !important;
+}
 `;
 
     /* ----------------------------------------------------------- */
@@ -2691,6 +2731,53 @@ body:not(:has(#menu)) #status_bar {
         } catch (_) { /* noop */ }
     }
 
+    /* -----------------------------------------------------------
+     *  Превью изображений в чате
+     *  Находит ссылки на изображения в .msg_text и добавляет <img>
+     * ----------------------------------------------------------- */
+    function inlineChatImages() {
+        try {
+            var imgExts = /\.(jpe?g|png|gif|webp|bmp|svg)(\?.*)?$/i;
+            var chatMsg = document.getElementById('chat_msg');
+            if (!chatMsg) return;
+            var links = chatMsg.querySelectorAll('.msg_text a[href]');
+            for (var i = 0; i < links.length; i++) {
+                var a = links[i];
+                if (a.getAttribute('data-tm-img')) continue;
+                var href = a.getAttribute('href') || '';
+                if (!imgExts.test(href)) continue;
+                a.setAttribute('data-tm-img', '1');
+
+                var img = document.createElement('img');
+                img.className = 'tm-chat-img-preview';
+                img.loading = 'lazy';
+                // Корректный URL (абсолютный или относительный)
+                img.src = href.indexOf('//') !== -1 ? href : (location.origin + (href.charAt(0) === '/' ? '' : '/') + href);
+                img.alt = a.textContent || 'изображение';
+
+                // Клик по превью — лайтбокс
+                (function (src) {
+                    img.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        var overlay = document.createElement('div');
+                        overlay.className = 'tm-lightbox';
+                        var fullImg = document.createElement('img');
+                        fullImg.src = src;
+                        overlay.appendChild(fullImg);
+                        overlay.addEventListener('click', function () {
+                            overlay.remove();
+                        });
+                        document.body.appendChild(overlay);
+                    });
+                })(img.src);
+
+                // Вставляем превью после ссылки
+                a.parentNode.insertBefore(img, a.nextSibling);
+            }
+        } catch (_) { /* noop */ }
+    }
+
     // Применяем сохранённую тему как можно раньше (до DOMContentLoaded)
     (function earlyTheme() {
         const t = getCurrentTheme();
@@ -2713,6 +2800,7 @@ body:not(:has(#menu)) #status_bar {
         applyWeather(getCurrentWeather());
         injectScrollTop();
         watchNewMessages();
+        inlineChatImages();
 
         // MutationObserver для AJAX-вставок (debounce для производительности):
         try {
@@ -2729,6 +2817,7 @@ body:not(:has(#menu)) #status_bar {
                 freeMenuFromSlimScroll();
                 lazyLoadGulist();
                 markMyMessages();
+                inlineChatImages();
             }
             const observer = new MutationObserver((mutations) => {
                 var hasNew = false;
